@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CompanyPaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Company extends Model
 {
@@ -35,5 +36,10 @@ class Company extends Model
     public function groups(): HasMany
     {
         return $this->hasMany(Group::class);
+    }
+
+    public function members(): HasManyThrough
+    {
+        return $this->hasManyThrough(Member::class, Group::class);
     }
 }

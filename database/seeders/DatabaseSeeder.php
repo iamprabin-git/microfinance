@@ -3,8 +3,14 @@
 namespace Database\Seeders;
 
 use App\Enums\CompanyPaymentStatus;
+use App\Enums\DepositStatus;
+use App\Enums\LoanStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
+use App\Models\Group;
+use App\Models\Loan;
+use App\Models\Member;
+use App\Models\MonthlyDeposit;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
@@ -61,6 +67,56 @@ class DatabaseSeeder extends Seeder
                 'role' => UserRole::CompanyUser,
                 'company_id' => $acme->id,
                 'email_verified_at' => Carbon::now(),
+            ]
+        );
+
+        $group = Group::query()->firstOrCreate(
+            [
+                'company_id' => $acme->id,
+                'name' => 'Main savings circle',
+            ],
+            [
+                'description' => 'Demo group for members, savings, and loans.',
+                'monthly_contribution_amount' => 50,
+                'currency' => 'USD',
+            ]
+        );
+
+        $demoMember = Member::query()->firstOrCreate(
+            [
+                'group_id' => $group->id,
+                'email' => 'member.demo@example.com',
+            ],
+            [
+                'name' => 'Demo Member',
+                'phone' => null,
+            ]
+        );
+
+        MonthlyDeposit::query()->firstOrCreate(
+            [
+                'member_id' => $demoMember->id,
+                'period' => Carbon::now()->startOfMonth()->toDateString(),
+            ],
+            [
+                'group_id' => $group->id,
+                'amount' => 50,
+                'status' => DepositStatus::Paid,
+                'paid_at' => Carbon::now()->toDateString(),
+            ]
+        );
+
+        Loan::query()->firstOrCreate(
+            [
+                'group_id' => $group->id,
+                'member_id' => $demoMember->id,
+                'principal' => 200,
+                'issued_at' => Carbon::now()->subMonth()->startOfMonth()->toDateString(),
+            ],
+            [
+                'due_date' => Carbon::now()->addMonths(2)->toDateString(),
+                'status' => LoanStatus::Active,
+                'notes' => 'Demo seed loan — record repayments from the portal.',
             ]
         );
     }

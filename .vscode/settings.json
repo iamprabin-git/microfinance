@@ -1,5 +1,10 @@
 {
     "intelephense.environment.includePaths": [
         "${workspaceFolder}/vendor"
+    ],
+    "cSpell.words": [
+        "inertiajs",
+        "Laravel",
+        "Samuh"
     ]
 }

@@ -38,3 +38,40 @@ export interface MarketingPageContent {
 export interface MarketingPageProps {
     page: MarketingPageContent & { slug?: string };
 }
+
+export interface GroupOption {
+    id: number;
+    name: string;
+    currency: string;
+}
+
+export interface MemberListRow {
+    id: number;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    group: { id: number; name: string; currency: string };
+}
+
+export interface SavingListRow {
+    id: number;
+    period: string;
+    amount: string;
+    status: string;
+    paid_at: string | null;
+    group: { id: number; name: string; currency: string };
+    member: { id: number; name: string };
+}
+
+export interface LoanListRow {
+    id: number;
+    principal: string;
+    issued_at: string;
+    due_date: string | null;
+    status: string;
+    repaid: string;
+    group: { id: number; name: string; currency: string };
+    member: { id: number; name: string };
+}
+
+export type MembersByGroup = Record<string, { id: number; name: string }[]>;

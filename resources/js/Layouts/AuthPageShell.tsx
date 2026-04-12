@@ -1,3 +1,5 @@
+import PublicFooter from '@/components/layout/PublicFooter';
+import PublicHeader from '@/components/layout/PublicHeader';
 import type { ReactNode } from 'react';
 
 type AuthPageShellProps = {
@@ -7,17 +9,18 @@ type AuthPageShellProps = {
 
 export default function AuthPageShell({ children, after }: AuthPageShellProps) {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 px-4 py-8">
-            <div className="mb-8 text-center">
-                <h1 className="text-2xl font-semibold tracking-tight">Samuh</h1>
-                <p className="text-muted-foreground mt-1 text-sm">
+        <div className="flex min-h-screen flex-col bg-gradient-to-b from-muted/40 to-background">
+            <PublicHeader />
+            <main className="flex flex-1 flex-col items-center px-4 py-8 sm:py-12">
+                <p className="text-muted-foreground mb-6 text-center text-sm font-medium">
                     Company portal
                 </p>
-            </div>
-            {children}
-            {after ? (
-                <div className="mt-8 w-full max-w-md">{after}</div>
-            ) : null}
+                {children}
+                {after ? (
+                    <div className="mt-8 w-full max-w-md">{after}</div>
+                ) : null}
+            </main>
+            <PublicFooter variant="compact" />
         </div>
     );
 }

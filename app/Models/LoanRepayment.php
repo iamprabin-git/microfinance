@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\LoanStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -11,12 +12,12 @@ class LoanRepayment extends Model
     {
         static::saved(function (LoanRepayment $repayment): void {
             $loan = $repayment->loan;
-            if (! $loan || $loan->status !== 'active') {
+            if (! $loan || $loan->status !== LoanStatus::Active) {
                 return;
             }
             $total = (float) $loan->repayments()->sum('amount');
             if ($total >= (float) $loan->principal) {
-                $loan->update(['status' => 'closed']);
+                $loan->update(['status' => LoanStatus::Closed]);
             }
         });
     }

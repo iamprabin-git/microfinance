@@ -7,10 +7,8 @@ import {
     CardTitle,
 } from '@/components/ui/card';
 import AppLayout from '@/Layouts/AppLayout';
-import { buttonVariants } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 import type { CompanyUserRow } from '@/types/models';
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 
 function roleDisplay(role: string): string {
     switch (role) {
@@ -38,77 +36,38 @@ export default function Dashboard({ companyUsers = [] }: DashboardProps) {
         <AppLayout title="Dashboard">
             <Head title="Dashboard" />
 
-            <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Welcome back</CardTitle>
-                        <CardDescription>
-                            You are signed in to the Samuh company portal
-                            (Inertia + shadcn/ui, served by Laravel).
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-2 text-sm">
+            <Card className="max-w-2xl">
+                <CardHeader>
+                    <CardTitle>Welcome back</CardTitle>
+                    <CardDescription>
+                        You are signed in to the Samuh company portal
+                        (Inertia + shadcn/ui, served by Laravel). Use the
+                        sidebar to open Groups, Members, Savings, and Loans.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                    <p>
+                        <span className="text-muted-foreground">
+                            Signed in as{' '}
+                        </span>
+                        <span className="font-medium">{auth.user?.name}</span>
+                    </p>
+                    <p className="flex flex-wrap items-center gap-2">
+                        <span className="text-muted-foreground">Role</span>
+                        <Badge variant="secondary">{roleLabel}</Badge>
+                    </p>
+                    {auth.user?.company ? (
                         <p>
                             <span className="text-muted-foreground">
-                                Signed in as{' '}
+                                Organization{' '}
                             </span>
                             <span className="font-medium">
-                                {auth.user?.name}
+                                {auth.user.company.name}
                             </span>
                         </p>
-                        <p className="flex flex-wrap items-center gap-2">
-                            <span className="text-muted-foreground">Role</span>
-                            <Badge variant="secondary">{roleLabel}</Badge>
-                        </p>
-                        {auth.user?.company ? (
-                            <p>
-                                <span className="text-muted-foreground">
-                                    Organization{' '}
-                                </span>
-                                <span className="font-medium">
-                                    {auth.user.company.name}
-                                </span>
-                            </p>
-                        ) : null}
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Next steps</CardTitle>
-                        <CardDescription>
-                            Accounting CRUD can be added here as Inertia pages
-                            calling your Laravel routes, reusing the same
-                            multi-tenant models as before.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-3 text-muted-foreground text-sm">
-                        <p>
-                            Open{' '}
-                            <Link
-                                href={route('groups.index')}
-                                className={cn(
-                                    buttonVariants({
-                                        variant: 'link',
-                                        size: 'sm',
-                                    }),
-                                    'h-auto p-0 text-sm',
-                                )}
-                            >
-                                Groups
-                            </Link>{' '}
-                            to see savings circles for your company.
-                        </p>
-                        <p>
-                            UI lives in{' '}
-                            <code className="bg-muted rounded px-1 py-0.5 text-xs">
-                                resources/js
-                            </code>{' '}
-                            (React + shadcn, Vite)—no separate Next.js app.
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
+                    ) : null}
+                </CardContent>
+            </Card>
 
             <Card className="mt-6">
                 <CardHeader>

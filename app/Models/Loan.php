@@ -2,12 +2,16 @@
 
 namespace App\Models;
 
+use App\Enums\LoanStatus;
+use App\Models\Concerns\BelongsToCompanyViaGroup;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Loan extends Model
 {
+    use BelongsToCompanyViaGroup;
+
     protected $fillable = [
         'group_id',
         'member_id',
@@ -24,6 +28,7 @@ class Loan extends Model
             'principal' => 'decimal:2',
             'issued_at' => 'date',
             'due_date' => 'date',
+            'status' => LoanStatus::class,
         ];
     }
 

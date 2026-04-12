@@ -1,55 +1,75 @@
+import AppFooter from '@/components/layout/AppFooter';
+import AppHeader from '@/components/layout/AppHeader';
+import CompanySidebarNav, {
+    buildCompanyNavItems,
+} from '@/components/layout/CompanySidebarNav';
 import { buttonVariants } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { cn } from '@/lib/utils';
 import { Link, usePage } from '@inertiajs/react';
+import { LogOut, type LucideIcon, User } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 type AppLayoutProps = {
     title?: string;
+    /** Shown before the page title in the main &lt;h1&gt;. */
+    titleIcon?: LucideIcon;
     children: ReactNode;
 };
 
-export default function AppLayout({ title, children }: AppLayoutProps) {
+export default function AppLayout({
+    title,
+    titleIcon: TitleIcon,
+    children,
+}: AppLayoutProps) {
     const { auth } = usePage().props;
     const { url } = usePage();
-    const onGroups = url.startsWith('/groups');
+    const path = url.split('?')[0] ?? url;
+    const company = auth.user?.company;
+    const useCompanySidebar = Boolean(company);
+    const navItems = useCompanySidebar ? buildCompanyNavItems(path) : [];
 
     return (
-        <div className="flex min-h-screen flex-col bg-background">
-            <header className="sticky top-0 z-40 border-b bg-card">
-                <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
-                    <div className="flex items-center gap-3">
+        <div
+            className={cn(
+                'min-h-screen bg-background',
+                useCompanySidebar && 'lg:flex',
+            )}
+        >
+            {useCompanySidebar ? (
+                <aside
+                    className="border-border/60 bg-background hidden w-56 shrink-0 flex-col border-r lg:flex"
+                    aria-label="Company navigation"
+                >
+                    <div className="border-border/60 border-b px-4 py-4">
                         <Link
                             href={route('dashboard')}
                             className="font-semibold tracking-tight"
                         >
                             Samuh
                         </Link>
-                        <Separator orientation="vertical" className="h-6" />
-                        {auth.user?.company ? (
-                            <span className="text-muted-foreground text-sm">
-                                {auth.user.company.name}
-                            </span>
-                        ) : null}
+                        <p className="text-muted-foreground mt-1 truncate text-sm">
+                            {company!.name}
+                        </p>
                     </div>
-                    <nav className="flex items-center gap-2">
-                        <Link
-                            href={route('groups.index')}
-                            className={cn(
-                                buttonVariants({
-                                    variant: onGroups ? 'secondary' : 'ghost',
-                                    size: 'sm',
-                                }),
-                            )}
-                        >
-                            Groups
-                        </Link>
+                    <div className="flex flex-1 flex-col overflow-y-auto p-3">
+                        <CompanySidebarNav items={navItems} />
+                    </div>
+                    <div className="border-border/60 space-y-0.5 border-t p-3">
                         <Link
                             href={route('profile.edit')}
                             className={cn(
-                                buttonVariants({ variant: 'ghost', size: 'sm' }),
+                                buttonVariants({
+                                    variant: path.startsWith('/profile')
+                                        ? 'secondary'
+                                        : 'ghost',
+                                    size: 'sm',
+                                    className:
+                                        'w-full justify-start gap-2 font-normal',
+                                }),
                             )}
                         >
+                            <HeadingIcon icon={User} size="sm" />
                             Profile
                         </Link>
                         <Link
@@ -60,22 +80,41 @@ export default function AppLayout({ title, children }: AppLayoutProps) {
                                 buttonVariants({
                                     variant: 'outline',
                                     size: 'sm',
+                                    className:
+                                        'w-full justify-center gap-2 font-normal',
                                 }),
                             )}
                         >
+                            <LogOut className="size-4 shrink-0 opacity-70" aria-hidden />
                             Log out
                         </Link>
-                    </nav>
-                </div>
-            </header>
-            <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">
-                {title ? (
-                    <h1 className="mb-6 text-2xl font-semibold tracking-tight">
-                        {title}
-                    </h1>
-                ) : null}
-                {children}
-            </main>
+                    </div>
+                </aside>
+            ) : null}
+
+            <div className="flex min-h-screen min-w-0 flex-1 flex-col">
+                <AppHeader companySidebarLayout={useCompanySidebar} />
+                <main
+                    className={cn(
+                        'mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8',
+                    )}
+                >
+                    {title ? (
+                        <h1 className="mb-5 flex items-center gap-2.5 text-2xl font-semibold tracking-tight sm:mb-6 sm:gap-3">
+                            {TitleIcon ? (
+                                <HeadingIcon
+                                    icon={TitleIcon}
+                                    size="lg"
+                                    className="text-foreground/80"
+                                />
+                            ) : null}
+                            {title}
+                        </h1>
+                    ) : null}
+                    {children}
+                </main>
+                <AppFooter companySidebarLayout={useCompanySidebar} />
+            </div>
         </div>
     );
 }

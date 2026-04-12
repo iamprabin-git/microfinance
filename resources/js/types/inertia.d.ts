@@ -20,6 +20,9 @@ declare module '@inertiajs/core' {
             flash?: {
                 status?: string | null;
             };
+            companyPortal?: {
+                canManage: boolean;
+            };
         };
     }
 }
