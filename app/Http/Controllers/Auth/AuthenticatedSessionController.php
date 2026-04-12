@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers\Auth;
 
+use App\Enums\UserRole;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +34,24 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+
+        $user = $request->user();
+        $user->load('company');
+
+        if ($user->role === UserRole::SuperAdmin) {
+            return redirect()->intended('/admin');
+        }
+
+        if ($user->company_id && $user->company && ! $user->company->is_active) {
+            Auth::guard('web')->logout();
+
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            throw ValidationException::withMessages([
+                'email' => 'Your organization is inactive. Sign in again once payment has been verified by support.',
+            ]);
+        }
 
         return redirect()->intended(route('dashboard', absolute: false));
     }
