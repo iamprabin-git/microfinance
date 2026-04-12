@@ -1,0 +1,40 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+
+@config 'tailwind.config.js';
+
+/*
+ | Samuh admin — refined surfaces, theme controls, and mobile-friendly tables.
+ | Built on Filament’s Tailwind preset; keep overrides minimal for upgrades.
+ */
+@layer components {
+    .fi-topbar-theme .fi-theme-switcher {
+        @apply gap-0.5;
+    }
+
+    .fi-topbar-theme .fi-theme-switcher-btn {
+        @apply rounded-lg;
+    }
+
+    .fi-main-ctn {
+        @apply bg-gray-50/80 dark:bg-gray-950/50;
+    }
+
+    .fi-sidebar {
+        @apply border-e border-gray-200/80 dark:border-white/10 lg:border-e-0;
+    }
+
+    .fi-sidebar-header {
+        @apply border-b border-gray-200/60 dark:border-white/5;
+    }
+
+    .fi-ta-ctn {
+        @apply shadow-admin-card;
+    }
+}
+
+@media (max-width: 639px) {
+    .fi-topbar-theme .fi-theme-switcher-btn {
+        padding-inline: 0.5rem;
+        padding-block: 0.375rem;
+    }
+}

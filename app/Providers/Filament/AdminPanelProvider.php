@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use Filament\Enums\ThemeMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -10,6 +11,7 @@ use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
+use Filament\Support\Enums\MaxWidth;
 use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -27,10 +29,24 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->login()
-            ->brandName('Samuh Admin')
+            ->brandName('Samuh')
+            ->font('Inter')
+            ->viteTheme('resources/css/filament/admin/theme.css')
+            ->defaultThemeMode(ThemeMode::System)
+            ->darkMode(true)
             ->colors([
-                'primary' => Color::Amber,
+                'danger' => Color::Rose,
+                'gray' => Color::Slate,
+                'info' => Color::Sky,
+                'primary' => Color::Teal,
+                'success' => Color::Emerald,
+                'warning' => Color::Amber,
             ])
+            ->sidebarCollapsibleOnDesktop(true)
+            ->sidebarWidth('18.5rem')
+            ->collapsedSidebarWidth('4.5rem')
+            ->maxContentWidth(MaxWidth::SevenExtraLarge)
+            ->simplePageMaxContentWidth(MaxWidth::Large)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
