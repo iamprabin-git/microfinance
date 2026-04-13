@@ -30,17 +30,7 @@ class Group extends Model
 
     public function members(): HasMany
     {
-        return $this->hasMany(Member::class);
-    }
-
-    public function monthlyDeposits(): HasMany
-    {
-        return $this->hasMany(MonthlyDeposit::class);
-    }
-
-    public function loans(): HasMany
-    {
-        return $this->hasMany(Loan::class);
+        return $this->hasMany(Member::class, 'company_id', 'company_id');
     }
 
     public function financialTransactions(): HasMany

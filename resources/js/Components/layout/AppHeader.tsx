@@ -1,4 +1,5 @@
 import { Button, buttonVariants } from '@/components/ui/button';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import {
@@ -8,7 +9,18 @@ import {
     DialogTitle,
 } from '@headlessui/react';
 import { Link, usePage } from '@inertiajs/react';
-import { Menu, X } from 'lucide-react';
+import {
+    FileSpreadsheet,
+    Landmark,
+    LayoutDashboard,
+    LogOut,
+    Menu,
+    PiggyBank,
+    User,
+    Users,
+    X,
+    type LucideIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 
 type AppHeaderProps = {
@@ -25,10 +37,10 @@ export default function AppHeader({
 
     const path = url.split('?')[0] ?? url;
     const onDashboard = path === '/dashboard';
-    const onGroups = path.startsWith('/groups');
     const onMembers = path.startsWith('/members');
     const onSavings = path.startsWith('/savings');
     const onLoans = path.startsWith('/loans');
+    const onFinancialStatements = path.startsWith('/financial-statements');
     const onProfile = path.startsWith('/profile');
 
     /** Below this breakpoint the drawer lists all routes; bar shows Profile/Logout only on large screens when sidebar is visible. */
@@ -38,6 +50,7 @@ export default function AppHeader({
         active: boolean,
         href: string,
         label: string,
+        Icon: LucideIcon,
         onNavigate?: () => void,
     ) => (
         <Link
@@ -46,25 +59,43 @@ export default function AppHeader({
                 buttonVariants({
                     variant: active ? 'secondary' : 'ghost',
                     size: 'sm',
+                    className: 'gap-2',
                 }),
             )}
             onClick={onNavigate}
         >
+            <HeadingIcon icon={Icon} size="sm" />
             {label}
         </Link>
     );
 
-    const navButton = (active: boolean) =>
+    const mobileNavClass = (active: boolean) =>
         cn(
             buttonVariants({
                 variant: active ? 'secondary' : 'ghost',
                 size: 'sm',
-                className: 'w-full justify-start sm:w-auto sm:justify-center',
+                className: 'w-full justify-start gap-2 sm:w-auto sm:justify-center',
             }),
         );
 
+    const mobileRow = (
+        active: boolean,
+        href: string,
+        label: string,
+        Icon: LucideIcon,
+    ) => (
+        <Link
+            href={href}
+            className={mobileNavClass(active)}
+            onClick={() => setMobileOpen(false)}
+        >
+            <HeadingIcon icon={Icon} size="sm" />
+            {label}
+        </Link>
+    );
+
     return (
-        <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
+        <header className="print:hidden sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/75">
             <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
                 <div
                     className={cn(
@@ -102,22 +133,40 @@ export default function AppHeader({
                                 onDashboard,
                                 route('dashboard'),
                                 'Dashboard',
+                                LayoutDashboard,
                             )}
-                            {appNav(onGroups, route('groups.index'), 'Groups')}
                             {appNav(
                                 onMembers,
                                 route('members.index'),
                                 'Members',
+                                Users,
                             )}
                             {appNav(
                                 onSavings,
                                 route('savings.index'),
                                 'Savings',
+                                PiggyBank,
                             )}
-                            {appNav(onLoans, route('loans.index'), 'Loans')}
+                            {appNav(
+                                onLoans,
+                                route('loans.index'),
+                                'Loans',
+                                Landmark,
+                            )}
+                            {appNav(
+                                onFinancialStatements,
+                                route('financial-statements.index'),
+                                'Statements',
+                                FileSpreadsheet,
+                            )}
                         </>
                     ) : null}
-                    {appNav(onProfile, route('profile.edit'), 'Profile')}
+                    {appNav(
+                        onProfile,
+                        route('profile.edit'),
+                        'Profile',
+                        User,
+                    )}
                     <Link
                         href={route('logout')}
                         method="post"
@@ -126,9 +175,14 @@ export default function AppHeader({
                             buttonVariants({
                                 variant: 'outline',
                                 size: 'sm',
+                                className: 'gap-2',
                             }),
                         )}
                     >
+                        <LogOut
+                            className="size-4 shrink-0 text-muted-foreground"
+                            aria-hidden
+                        />
                         Log out
                     </Link>
                 </nav>
@@ -172,7 +226,11 @@ export default function AppHeader({
                         id="app-mobile-menu"
                     >
                         <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-                            <DialogTitle className="text-base font-semibold tracking-tight">
+                            <DialogTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
+                                <Menu
+                                    className="size-5 shrink-0 text-muted-foreground"
+                                    aria-hidden
+                                />
                                 Menu
                             </DialogTitle>
                             <Button
@@ -189,48 +247,42 @@ export default function AppHeader({
                             className="flex flex-col gap-1 p-3"
                             aria-label="Mobile app"
                         >
-                            <Link
-                                href={route('dashboard')}
-                                className={navButton(onDashboard)}
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                Dashboard
-                            </Link>
-                            <Link
-                                href={route('groups.index')}
-                                className={navButton(onGroups)}
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                Groups
-                            </Link>
-                            <Link
-                                href={route('members.index')}
-                                className={navButton(onMembers)}
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                Members
-                            </Link>
-                            <Link
-                                href={route('savings.index')}
-                                className={navButton(onSavings)}
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                Savings
-                            </Link>
-                            <Link
-                                href={route('loans.index')}
-                                className={navButton(onLoans)}
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                Loans
-                            </Link>
-                            <Link
-                                href={route('profile.edit')}
-                                className={navButton(onProfile)}
-                                onClick={() => setMobileOpen(false)}
-                            >
-                                Profile
-                            </Link>
+                            {mobileRow(
+                                onDashboard,
+                                route('dashboard'),
+                                'Dashboard',
+                                LayoutDashboard,
+                            )}
+                            {mobileRow(
+                                onMembers,
+                                route('members.index'),
+                                'Members',
+                                Users,
+                            )}
+                            {mobileRow(
+                                onSavings,
+                                route('savings.index'),
+                                'Savings',
+                                PiggyBank,
+                            )}
+                            {mobileRow(
+                                onLoans,
+                                route('loans.index'),
+                                'Loans',
+                                Landmark,
+                            )}
+                            {mobileRow(
+                                onFinancialStatements,
+                                route('financial-statements.index'),
+                                'Statements',
+                                FileSpreadsheet,
+                            )}
+                            {mobileRow(
+                                onProfile,
+                                route('profile.edit'),
+                                'Profile',
+                                User,
+                            )}
                             <Separator className="my-2" />
                             <Link
                                 href={route('logout')}
@@ -239,11 +291,16 @@ export default function AppHeader({
                                 className={cn(
                                     buttonVariants({
                                         variant: 'outline',
-                                        className: 'w-full justify-center',
+                                        className:
+                                            'w-full justify-center gap-2 font-normal',
                                     }),
                                 )}
                                 onClick={() => setMobileOpen(false)}
                             >
+                                <LogOut
+                                    className="size-4 shrink-0 text-muted-foreground"
+                                    aria-hidden
+                                />
                                 Log out
                             </Link>
                         </nav>

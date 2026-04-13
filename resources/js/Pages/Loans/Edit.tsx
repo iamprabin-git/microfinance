@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -7,13 +8,14 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import AppLayout from '@/Layouts/AppLayout';
-import type { GroupOption, MembersByGroup } from '@/types/models';
+import type { CompanyMemberOption } from '@/types/models';
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { Landmark, ListOrdered } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 type RepaymentRow = {
@@ -25,37 +27,41 @@ type RepaymentRow = {
 
 type LoanEdit = {
     id: number;
-    group_id: number;
     member_id: number;
     principal: string;
     issued_at: string;
     due_date: string | null;
     status: string;
     notes: string | null;
+    company_approval_status: string;
+    currency: string;
     repayments: RepaymentRow[];
 };
 
 type EditProps = {
     loan: LoanEdit;
-    groups: GroupOption[];
-    membersByGroup: MembersByGroup;
+    members: CompanyMemberOption[];
     canRepay: boolean;
+    canApproveRecords: boolean;
 };
 
 export default function Edit({
     loan,
-    groups,
-    membersByGroup,
+    members,
     canRepay,
+    canApproveRecords,
 }: EditProps) {
     const { data, setData, put, processing, errors } = useForm({
-        group_id: loan.group_id,
         member_id: loan.member_id,
         principal: loan.principal,
         issued_at: loan.issued_at,
         due_date: loan.due_date ?? '',
         status: loan.status as 'active' | 'closed',
         notes: loan.notes ?? '',
+        company_approval_status: loan.company_approval_status as
+            | 'approved'
+            | 'pending_approval'
+            | 'rejected',
     });
 
     const repayForm = useForm({
@@ -63,10 +69,6 @@ export default function Edit({
         paid_at: new Date().toISOString().slice(0, 10),
         notes: '',
     });
-
-    const memberOptions = useMemo(() => {
-        return membersByGroup[String(data.group_id)] ?? [];
-    }, [membersByGroup, data.group_id]);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -85,47 +87,85 @@ export default function Edit({
     };
 
     return (
-        <AppLayout title="Loan details">
+        <AppLayout title="Loan details" titleIcon={Landmark} hidePrint={false}>
             <Head title="Loan details" />
 
             <div className="mx-auto grid max-w-lg gap-8">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Edit loan</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={Landmark} size="sm" />
+                            Edit loan
+                        </CardTitle>
                         <CardDescription>
-                            Update terms; record repayments below when active.
+                            Update terms; record repayments below when active
+                            and company-approved.
                         </CardDescription>
                     </CardHeader>
                     <form onSubmit={submit}>
                         <CardContent className="grid gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="group_id">Group</Label>
-                                <select
-                                    id="group_id"
-                                    className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
-                                    value={data.group_id}
-                                    onChange={(e) => {
-                                        const gid = Number(e.target.value);
-                                        setData('group_id', gid);
-                                        const first =
-                                            membersByGroup[String(gid)]?.[0]
-                                                ?.id ?? 0;
-                                        setData('member_id', first);
-                                    }}
-                                    required
-                                >
-                                    {groups.map((g) => (
-                                        <option key={g.id} value={g.id}>
-                                            {g.name} ({g.currency})
+                            {errors.organization ? (
+                                <p className="text-destructive text-sm">
+                                    {errors.organization}
+                                </p>
+                            ) : null}
+                            {canApproveRecords ? (
+                                <div className="grid gap-2">
+                                    <Label htmlFor="company_approval_status">
+                                        Company approval
+                                    </Label>
+                                    <select
+                                        id="company_approval_status"
+                                        className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
+                                        value={data.company_approval_status}
+                                        onChange={(e) =>
+                                            setData(
+                                                'company_approval_status',
+                                                e.target.value as typeof data.company_approval_status,
+                                            )
+                                        }
+                                        required
+                                    >
+                                        <option value="approved">
+                                            Approved
                                         </option>
-                                    ))}
-                                </select>
-                                {errors.group_id ? (
-                                    <p className="text-destructive text-sm">
-                                        {errors.group_id}
+                                        <option value="pending_approval">
+                                            Pending approval
+                                        </option>
+                                        <option value="rejected">Rejected</option>
+                                    </select>
+                                    {errors.company_approval_status ? (
+                                        <p className="text-destructive text-sm">
+                                            {
+                                                errors.company_approval_status
+                                            }
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : (
+                                <div className="grid gap-1">
+                                    <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                                        Company approval
+                                    </span>
+                                    <Badge
+                                        variant={
+                                            loan.company_approval_status ===
+                                            'approved'
+                                                ? 'secondary'
+                                                : 'outline'
+                                        }
+                                    >
+                                        {loan.company_approval_status.replace(
+                                            '_',
+                                            ' ',
+                                        )}
+                                    </Badge>
+                                    <p className="text-muted-foreground text-xs">
+                                        Submitting updates sends this record to a
+                                        company admin for approval.
                                     </p>
-                                ) : null}
-                            </div>
+                                </div>
+                            )}
                             <div className="grid gap-2">
                                 <Label htmlFor="member_id">Member</Label>
                                 <select
@@ -140,7 +180,7 @@ export default function Edit({
                                     }
                                     required
                                 >
-                                    {memberOptions.map((m) => (
+                                    {members.map((m) => (
                                         <option key={m.id} value={m.id}>
                                             {m.name}
                                         </option>
@@ -153,7 +193,9 @@ export default function Edit({
                                 ) : null}
                             </div>
                             <div className="grid gap-2">
-                                <Label htmlFor="principal">Principal</Label>
+                                <Label htmlFor="principal">
+                                    Principal ({loan.currency})
+                                </Label>
                                 <Input
                                     id="principal"
                                     type="number"
@@ -242,7 +284,10 @@ export default function Edit({
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Repayments</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={ListOrdered} size="sm" />
+                            Repayments
+                        </CardTitle>
                         <CardDescription>
                             Total repaid updates automatically. Loan closes when
                             sum reaches principal.
@@ -261,7 +306,7 @@ export default function Edit({
                                         className="flex flex-wrap justify-between gap-2 border-b border-border/60 py-2 last:border-0"
                                     >
                                         <span className="font-medium tabular-nums">
-                                            {r.amount}
+                                            {loan.currency} {r.amount}
                                         </span>
                                         <span className="text-muted-foreground">
                                             {r.paid_at}
@@ -276,7 +321,9 @@ export default function Edit({
                             </ul>
                         )}
 
-                        {canRepay && loan.status === 'active' ? (
+                        {canRepay &&
+                        loan.status === 'active' &&
+                        loan.company_approval_status === 'approved' ? (
                             <>
                                 <Separator />
                                 <form
@@ -289,7 +336,7 @@ export default function Edit({
                                     <div className="grid gap-2 sm:grid-cols-2">
                                         <div className="grid gap-2">
                                             <Label htmlFor="r_amount">
-                                                Amount
+                                                Amount ({loan.currency})
                                             </Label>
                                             <Input
                                                 id="r_amount"

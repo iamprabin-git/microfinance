@@ -7,13 +7,17 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import AppLayout from '@/Layouts/AppLayout';
 import { cn } from '@/lib/utils';
-import type { SavingListRow } from '@/types/models';
+import type { MemberMissingSavingsRow, SavingListRow } from '@/types/models';
 import { Head, Link, usePage } from '@inertiajs/react';
+import { PiggyBank } from 'lucide-react';
 
 type IndexProps = {
     savings: SavingListRow[];
+    missing_savings_period_label: string;
+    members_missing_savings: MemberMissingSavingsRow[];
 };
 
 function statusVariant(
@@ -24,18 +28,22 @@ function statusVariant(
     return 'outline';
 }
 
-export default function Index({ savings }: IndexProps) {
+export default function Index({
+    savings,
+    missing_savings_period_label,
+    members_missing_savings,
+}: IndexProps) {
     const { companyPortal } = usePage().props;
     const canManage = companyPortal?.canManage ?? false;
 
     return (
-        <AppLayout title="Savings">
+        <AppLayout title="Savings" titleIcon={PiggyBank} hidePrint={false}>
             <Head title="Savings" />
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-muted-foreground max-w-xl text-sm">
-                    Monthly contribution records per member. Amounts use each
-                    group&apos;s currency.
+                    Monthly contribution records per member, with currency per
+                    record.
                 </p>
                 {canManage ? (
                     <Link
@@ -47,9 +55,58 @@ export default function Index({ savings }: IndexProps) {
                 ) : null}
             </div>
 
+            {canManage && members_missing_savings.length > 0 ? (
+                <Card className="mb-6 border-dashed">
+                    <CardHeader>
+                        <CardTitle className="text-base">
+                            No saving row for {missing_savings_period_label}
+                        </CardTitle>
+                        <CardDescription>
+                            These members are not in the table below until you add
+                            a monthly record for this month.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <ul className="flex flex-col gap-2 text-sm">
+                            {members_missing_savings.map((m) => (
+                                <li
+                                    key={m.id}
+                                    className="flex flex-wrap items-center justify-between gap-2 border-b border-border/50 py-2 last:border-0"
+                                >
+                                    <span className="font-medium">
+                                        {m.name}
+                                        {m.member_number != null ? (
+                                            <span className="text-muted-foreground ms-1 font-normal tabular-nums">
+                                                #{m.member_number}
+                                            </span>
+                                        ) : null}
+                                    </span>
+                                    <Link
+                                        href={route('savings.create', {
+                                            member_id: m.id,
+                                        })}
+                                        className={cn(
+                                            buttonVariants({
+                                                variant: 'outline',
+                                                size: 'sm',
+                                            }),
+                                        )}
+                                    >
+                                        Add record
+                                    </Link>
+                                </li>
+                            ))}
+                        </ul>
+                    </CardContent>
+                </Card>
+            ) : null}
+
             <Card>
                 <CardHeader>
-                    <CardTitle>Monthly savings</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={PiggyBank} size="sm" />
+                        Monthly savings
+                    </CardTitle>
                     <CardDescription>
                         Sorted by period (newest first).
                     </CardDescription>
@@ -61,7 +118,7 @@ export default function Index({ savings }: IndexProps) {
                         </p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[40rem] text-sm">
+                            <table className="w-full min-w-[36rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left">
                                         <th className="px-4 py-3 font-medium">
@@ -71,13 +128,13 @@ export default function Index({ savings }: IndexProps) {
                                             Member
                                         </th>
                                         <th className="px-4 py-3 font-medium">
-                                            Group
-                                        </th>
-                                        <th className="px-4 py-3 font-medium">
                                             Amount
                                         </th>
                                         <th className="px-4 py-3 font-medium">
                                             Status
+                                        </th>
+                                        <th className="px-4 py-3 font-medium">
+                                            Company
                                         </th>
                                         {canManage ? (
                                             <th className="px-4 py-3 font-medium text-end">
@@ -98,12 +155,8 @@ export default function Index({ savings }: IndexProps) {
                                             <td className="px-4 py-3 font-medium">
                                                 {row.member.name}
                                             </td>
-                                            <td className="text-muted-foreground px-4 py-3">
-                                                {row.group.name}
-                                            </td>
                                             <td className="px-4 py-3 tabular-nums">
-                                                {row.group.currency}{' '}
-                                                {row.amount}
+                                                {row.currency} {row.amount}
                                             </td>
                                             <td className="px-4 py-3">
                                                 <Badge
@@ -112,6 +165,21 @@ export default function Index({ savings }: IndexProps) {
                                                     )}
                                                 >
                                                     {row.status}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge
+                                                    variant={
+                                                        row.company_approval_status ===
+                                                        'approved'
+                                                            ? 'secondary'
+                                                            : 'outline'
+                                                    }
+                                                >
+                                                    {row.company_approval_status.replace(
+                                                        /_/g,
+                                                        ' ',
+                                                    )}
                                                 </Badge>
                                             </td>
                                             {canManage ? (

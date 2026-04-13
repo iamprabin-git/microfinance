@@ -42,11 +42,7 @@ class MarketingController extends Controller
             'canRegister' => Route::has('register'),
             'laravelVersion' => Application::VERSION,
             'phpVersion' => PHP_VERSION,
-            'page' => $home ? [
-                'title' => $home->title,
-                'subtitle' => $home->subtitle,
-                'body' => $home->body,
-            ] : null,
+            'page' => $home ? self::publicPagePayload($home) : null,
             'reviews' => $reviews,
         ]);
     }
@@ -60,12 +56,7 @@ class MarketingController extends Controller
         $content = SiteContent::query()->where('slug', $slug)->firstOrFail();
 
         return Inertia::render('Marketing/Page', [
-            'page' => [
-                'slug' => $content->slug,
-                'title' => $content->title,
-                'subtitle' => $content->subtitle,
-                'body' => $content->body,
-            ],
+            'page' => self::publicPagePayload($content),
         ]);
     }
 
@@ -82,5 +73,25 @@ class MarketingController extends Controller
     public function pricing(): Response
     {
         return $this->page('prices');
+    }
+
+    public function features(): Response
+    {
+        return $this->page('features');
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private static function publicPagePayload(SiteContent $content): array
+    {
+        return [
+            'slug' => $content->slug,
+            'title' => $content->title,
+            'subtitle' => $content->subtitle,
+            'body' => $content->body,
+            'meta_description' => $content->meta_description,
+            'hero_image_url' => $content->heroImagePublicUrl(),
+        ];
     }
 }

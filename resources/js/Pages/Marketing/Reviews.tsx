@@ -6,10 +6,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { cn } from '@/lib/utils';
 import type { PaginatedReviews, PublicReviewRow } from '@/types/models';
 import { Head, Link, usePage } from '@inertiajs/react';
+import { Star as StarIcon } from 'lucide-react';
 
 function Stars({ count }: { count: number }) {
     const n = Math.min(5, Math.max(0, Number(count) || 0));
@@ -50,7 +52,7 @@ export default function Reviews({ reviews }: ReviewsProps) {
         : null;
 
     return (
-        <PublicLayout title="Reviews">
+        <PublicLayout title="Reviews" titleIcon={StarIcon}>
             <Head title="Reviews" />
 
             {flash?.status ? (
@@ -82,7 +84,8 @@ export default function Reviews({ reviews }: ReviewsProps) {
                         <Card key={r.id}>
                             <CardHeader className="pb-2">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                    <CardTitle className="text-lg">
+                                    <CardTitle className="flex items-center gap-2 text-lg">
+                                        <HeadingIcon icon={StarIcon} size="sm" />
                                         {r.title || 'Review'}
                                     </CardTitle>
                                     <Stars count={r.rating} />

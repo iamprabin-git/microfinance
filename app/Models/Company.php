@@ -5,13 +5,13 @@ namespace App\Models;
 use App\Enums\CompanyPaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 
 class Company extends Model
 {
     protected $fillable = [
         'name',
         'slug',
+        'currency',
         'is_active',
         'notes',
         'payment_status',
@@ -38,8 +38,18 @@ class Company extends Model
         return $this->hasMany(Group::class);
     }
 
-    public function members(): HasManyThrough
+    public function members(): HasMany
     {
-        return $this->hasManyThrough(Member::class, Group::class);
+        return $this->hasMany(Member::class);
+    }
+
+    public function loans(): HasMany
+    {
+        return $this->hasMany(Loan::class);
+    }
+
+    public function monthlyDeposits(): HasMany
+    {
+        return $this->hasMany(MonthlyDeposit::class);
     }
 }

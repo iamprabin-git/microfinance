@@ -7,10 +7,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthPageShell from '@/Layouts/AuthPageShell';
 import { Head, useForm } from '@inertiajs/react';
+import { ShieldCheck } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 export default function ConfirmPassword() {
@@ -31,7 +33,10 @@ export default function ConfirmPassword() {
 
             <Card className="w-full max-w-md shadow-md">
                 <CardHeader>
-                    <CardTitle>Confirm password</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={ShieldCheck} size="sm" />
+                        Confirm password
+                    </CardTitle>
                     <CardDescription>
                         This is a secure area. Enter your password to continue.
                     </CardDescription>

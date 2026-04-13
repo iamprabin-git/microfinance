@@ -22,6 +22,9 @@ declare module '@inertiajs/core' {
             };
             companyPortal?: {
                 canManage: boolean;
+                canApproveRecords: boolean;
+                isEndUser: boolean;
+                canInvitePortalUsers: boolean;
             };
         };
     }

@@ -7,10 +7,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthPageShell from '@/Layouts/AuthPageShell';
 import { Head, useForm } from '@inertiajs/react';
+import { MailQuestionMark } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 type ForgotPasswordProps = {
@@ -33,7 +35,10 @@ export default function ForgotPassword({ status }: ForgotPasswordProps) {
 
             <Card className="w-full max-w-md shadow-md">
                 <CardHeader>
-                    <CardTitle>Forgot password</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={MailQuestionMark} size="sm" />
+                        Forgot password
+                    </CardTitle>
                     <CardDescription>
                         Enter your email and we will send a reset link.
                     </CardDescription>

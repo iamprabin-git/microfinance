@@ -2,12 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CompanyApprovalStatus;
 use App\Enums\LoanStatus;
-use App\Models\Group;
 use App\Models\Loan;
 use App\Models\Member;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -23,10 +25,9 @@ class LoanController extends Controller
     {
         $companyId = (int) $request->user()->company_id;
 
-        $loans = Loan::query()
-            ->forCompany($companyId)
+        $loans = $this->loansQueryForUser($request, $companyId)
             ->with([
-                'group:id,name,currency',
+                'company:id,currency',
                 'member:id,name',
             ])
             ->withSum('repayments', 'amount')
@@ -38,12 +39,9 @@ class LoanController extends Controller
                 'issued_at' => $loan->issued_at->format('Y-m-d'),
                 'due_date' => $loan->due_date?->format('Y-m-d'),
                 'status' => $loan->status->value,
+                'company_approval_status' => $loan->company_approval_status->value,
                 'repaid' => (string) ($loan->repayments_sum_amount ?? '0'),
-                'group' => [
-                    'id' => $loan->group->id,
-                    'name' => $loan->group->name,
-                    'currency' => $loan->group->currency,
-                ],
+                'currency' => $loan->company?->currency ?? config('app.default_currency'),
                 'member' => [
                     'id' => $loan->member->id,
                     'name' => $loan->member->name,
@@ -58,10 +56,11 @@ class LoanController extends Controller
     public function create(Request $request): Response
     {
         $companyId = (int) $request->user()->company_id;
+        $company = $request->user()->company;
 
         return Inertia::render('Loans/Create', [
-            'groups' => $this->groupOptions($companyId),
-            'membersByGroup' => $this->membersByGroup($companyId),
+            'members' => $this->membersForCompany($companyId),
+            'currency' => $company?->currency ?? config('app.default_currency'),
         ]);
     }
 
@@ -70,11 +69,6 @@ class LoanController extends Controller
         $companyId = (int) $request->user()->company_id;
 
         $validated = $request->validate([
-            'group_id' => [
-                'required',
-                'integer',
-                Rule::exists('groups', 'id')->where('company_id', $companyId),
-            ],
             'member_id' => ['required', 'integer'],
             'principal' => ['required', 'numeric', 'min:0.01'],
             'issued_at' => ['required', 'date'],
@@ -83,14 +77,16 @@ class LoanController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $member = Member::query()->findOrFail($validated['member_id']);
-        if ($member->group_id !== (int) $validated['group_id']) {
-            abort(422, 'Member does not belong to the selected group.');
-        }
+        Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
 
         $validated['due_date'] = filled($validated['due_date'] ?? null)
             ? $validated['due_date']
             : null;
+
+        $validated['company_id'] = $companyId;
+        $validated['company_approval_status'] = $request->user()->isCompanyAdmin()
+            ? CompanyApprovalStatus::Approved
+            : CompanyApprovalStatus::PendingApproval;
 
         Loan::query()->create($validated);
 
@@ -101,18 +97,22 @@ class LoanController extends Controller
     {
         $companyId = (int) $request->user()->company_id;
 
-        $loan->load(['repayments' => fn ($q) => $q->orderByDesc('paid_at')]);
+        $loan->load([
+            'company:id,currency',
+            'repayments' => fn ($q) => $q->orderByDesc('paid_at'),
+        ]);
 
         return Inertia::render('Loans/Edit', [
             'loan' => [
                 'id' => $loan->id,
-                'group_id' => $loan->group_id,
                 'member_id' => $loan->member_id,
                 'principal' => (string) $loan->principal,
                 'issued_at' => $loan->issued_at->format('Y-m-d'),
                 'due_date' => $loan->due_date?->format('Y-m-d'),
                 'status' => $loan->status->value,
                 'notes' => $loan->notes,
+                'company_approval_status' => $loan->company_approval_status->value,
+                'currency' => $loan->company?->currency ?? config('app.default_currency'),
                 'repayments' => $loan->repayments->map(fn ($r) => [
                     'id' => $r->id,
                     'amount' => (string) $r->amount,
@@ -120,9 +120,9 @@ class LoanController extends Controller
                     'notes' => $r->notes,
                 ]),
             ],
-            'groups' => $this->groupOptions($companyId),
-            'membersByGroup' => $this->membersByGroup($companyId),
+            'members' => $this->membersForCompany($companyId),
             'canRepay' => $request->user()->can('repay', $loan),
+            'canApproveRecords' => $request->user()->canApproveCompanyPortalRecords(),
         ]);
     }
 
@@ -131,11 +131,6 @@ class LoanController extends Controller
         $companyId = (int) $request->user()->company_id;
 
         $validated = $request->validate([
-            'group_id' => [
-                'required',
-                'integer',
-                Rule::exists('groups', 'id')->where('company_id', $companyId),
-            ],
             'member_id' => ['required', 'integer'],
             'principal' => ['required', 'numeric', 'min:0.01'],
             'issued_at' => ['required', 'date'],
@@ -144,14 +139,27 @@ class LoanController extends Controller
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $member = Member::query()->findOrFail($validated['member_id']);
-        if ($member->group_id !== (int) $validated['group_id']) {
-            abort(422, 'Member does not belong to the selected group.');
-        }
+        Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
 
         $validated['due_date'] = filled($validated['due_date'] ?? null)
             ? $validated['due_date']
             : null;
+
+        $validated['company_id'] = $loan->company_id;
+
+        if ($request->user()->isCompanyAdmin()) {
+            $validated = array_merge($validated, $request->validate([
+                'company_approval_status' => ['required', Rule::enum(CompanyApprovalStatus::class)],
+            ]));
+        } else {
+            // Same as savings: staff used to reset every edit to pending, which removed
+            // loans from approved-only financial statements until an admin re-opened them.
+            $wasApproved = $loan->company_approval_status === CompanyApprovalStatus::Approved;
+            $materialChanged = $this->loanMaterialFieldsChanged($loan, $validated);
+            $validated['company_approval_status'] = ($wasApproved && ! $materialChanged)
+                ? CompanyApprovalStatus::Approved
+                : CompanyApprovalStatus::PendingApproval;
+        }
 
         $loan->update($validated);
 
@@ -166,39 +174,60 @@ class LoanController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string, currency: string}>
+     * @return Builder<Loan>
      */
-    private function groupOptions(int $companyId): array
+    private function loansQueryForUser(Request $request, int $companyId): Builder
     {
-        return Group::query()
-            ->where('company_id', $companyId)
+        $query = Loan::query()->forCompany($companyId);
+
+        if ($request->user()->isCompanyEndUser()) {
+            $email = strtolower(trim($request->user()->email));
+            $query->whereHas('member', function (Builder $m) use ($companyId, $email): void {
+                $m->where('company_id', $companyId)
+                    ->whereNotNull('email')
+                    ->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return list<array{id: int, name: string}>
+     */
+    private function membersForCompany(int $companyId): array
+    {
+        return Member::query()
+            ->forCompany($companyId)
             ->orderBy('name')
-            ->get()
-            ->map(fn (Group $g) => [
-                'id' => $g->id,
-                'name' => $g->name,
-                'currency' => $g->currency,
-            ])
+            ->get(['id', 'name'])
+            ->map(fn (Member $m) => ['id' => $m->id, 'name' => $m->name])
             ->all();
     }
 
     /**
-     * @return array<string, list<array{id: int, name: string}>>
+     * @param  array{member_id: int, principal: mixed, issued_at: string, status: LoanStatus|string}  $validated
      */
-    private function membersByGroup(int $companyId): array
+    private function loanMaterialFieldsChanged(Loan $loan, array $validated): bool
     {
-        $members = Member::query()
-            ->forCompany($companyId)
-            ->orderBy('name')
-            ->get(['id', 'group_id', 'name']);
+        $newStatus = $validated['status'] instanceof LoanStatus
+            ? $validated['status']
+            : LoanStatus::from((string) $validated['status']);
 
-        $out = [];
-        foreach ($members as $m) {
-            $key = (string) $m->group_id;
-            $out[$key] ??= [];
-            $out[$key][] = ['id' => $m->id, 'name' => $m->name];
+        if (abs((float) $validated['principal'] - (float) $loan->principal) > 0.000001) {
+            return true;
+        }
+        if ((int) $validated['member_id'] !== (int) $loan->member_id) {
+            return true;
+        }
+        $newIssued = Carbon::parse($validated['issued_at'])->toDateString();
+        if ($newIssued !== $loan->issued_at->toDateString()) {
+            return true;
+        }
+        if ($newStatus !== $loan->status) {
+            return true;
         }
 
-        return $out;
+        return false;
     }
 }

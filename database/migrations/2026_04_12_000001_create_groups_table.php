@@ -13,7 +13,7 @@ return new class extends Migration
             $table->string('name');
             $table->text('description')->nullable();
             $table->decimal('monthly_contribution_amount', 14, 2)->default(0);
-            $table->string('currency', 8)->default('USD');
+            $table->string('currency', 8)->default('NPR');
             $table->timestamps();
         });
     }

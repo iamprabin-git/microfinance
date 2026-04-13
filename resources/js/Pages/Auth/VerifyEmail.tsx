@@ -7,9 +7,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import AuthPageShell from '@/Layouts/AuthPageShell';
 import { cn } from '@/lib/utils';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { MailCheck } from 'lucide-react';
 
 type VerifyEmailProps = {
     status?: string;
@@ -28,7 +30,10 @@ export default function VerifyEmail({ status }: VerifyEmailProps) {
 
             <Card className="w-full max-w-md shadow-md">
                 <CardHeader>
-                    <CardTitle>Verify your email</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={MailCheck} size="sm" />
+                        Verify your email
+                    </CardTitle>
                     <CardDescription>
                         Thanks for signing up. Please use the link in the email
                         we sent you. If you did not receive it, you can request

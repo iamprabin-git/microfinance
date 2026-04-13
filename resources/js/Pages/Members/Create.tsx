@@ -7,23 +7,21 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/Layouts/AppLayout';
-import type { GroupOption } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { UserPlus } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
-type CreateProps = {
-    groups: GroupOption[];
-};
-
-export default function Create({ groups }: CreateProps) {
+export default function Create() {
     const { data, setData, post, processing, errors } = useForm({
-        group_id: groups[0]?.id ?? 0,
         name: '',
         email: '',
         phone: '',
+        address: '',
+        profile_image: null as File | null,
     });
 
     const submit: FormEventHandler = (e) => {
@@ -32,48 +30,21 @@ export default function Create({ groups }: CreateProps) {
     };
 
     return (
-        <AppLayout title="Add member">
+        <AppLayout title="Add member" titleIcon={UserPlus}>
             <Head title="Add member" />
 
             <Card className="mx-auto max-w-lg">
                 <CardHeader>
-                    <CardTitle>New member</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={UserPlus} size="sm" />
+                        New member
+                    </CardTitle>
                     <CardDescription>
-                        Assign the member to one of your savings groups.
+                        Add someone to your organization&apos;s member directory.
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={submit}>
                     <CardContent className="grid gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="group_id">Group</Label>
-                            <select
-                                id="group_id"
-                                className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
-                                value={data.group_id || ''}
-                                onChange={(e) =>
-                                    setData(
-                                        'group_id',
-                                        Number(e.target.value),
-                                    )
-                                }
-                                required
-                                disabled={groups.length === 0}
-                            >
-                                {groups.length === 0 ? (
-                                    <option value="">No groups</option>
-                                ) : null}
-                                {groups.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.name} ({g.currency})
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.group_id ? (
-                                <p className="text-destructive text-sm">
-                                    {errors.group_id}
-                                </p>
-                            ) : null}
-                        </div>
                         <div className="grid gap-2">
                             <Label htmlFor="name">Name</Label>
                             <Input
@@ -121,12 +92,45 @@ export default function Create({ groups }: CreateProps) {
                                 </p>
                             ) : null}
                         </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="address">Address</Label>
+                            <textarea
+                                id="address"
+                                className="border-input bg-background placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 dark:bg-input/30 flex min-h-[5rem] w-full rounded-lg border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+                                value={data.address}
+                                onChange={(e) =>
+                                    setData('address', e.target.value)
+                                }
+                                rows={4}
+                            />
+                            {errors.address ? (
+                                <p className="text-destructive text-sm">
+                                    {errors.address}
+                                </p>
+                            ) : null}
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="profile_image">Profile image</Label>
+                            <Input
+                                id="profile_image"
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) =>
+                                    setData(
+                                        'profile_image',
+                                        e.target.files?.[0] ?? null,
+                                    )
+                                }
+                            />
+                            {errors.profile_image ? (
+                                <p className="text-destructive text-sm">
+                                    {errors.profile_image}
+                                </p>
+                            ) : null}
+                        </div>
                     </CardContent>
                     <CardFooter className="flex flex-wrap justify-between gap-3 border-t bg-muted/30">
-                        <Button
-                            type="submit"
-                            disabled={processing || groups.length === 0}
-                        >
+                        <Button type="submit" disabled={processing}>
                             {processing ? 'Saving…' : 'Save'}
                         </Button>
                         <Link

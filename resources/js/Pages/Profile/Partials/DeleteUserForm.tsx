@@ -2,7 +2,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import Modal from '@/components/Modal';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { useForm } from '@inertiajs/react';
+import { AlertTriangle } from 'lucide-react';
 import { useRef, useState } from 'react';
 import type { FormEventHandler } from 'react';
 
@@ -56,7 +58,8 @@ export default function DeleteUserForm() {
 
             <Modal show={confirmingUserDeletion} onClose={closeModal}>
                 <form onSubmit={deleteUser} className="p-6">
-                    <h2 className="text-lg font-semibold tracking-tight">
+                    <h2 className="flex items-center gap-2 text-lg font-semibold tracking-tight">
+                        <HeadingIcon icon={AlertTriangle} size="md" />
                         Delete your account?
                     </h2>
                     <p className="text-muted-foreground mt-2 text-sm leading-relaxed">

@@ -17,6 +17,12 @@ class GroupResource extends Resource
 {
     protected static ?string $model = Group::class;
 
+    /**
+     * Groups are managed inside each company in the portal; keep the resource
+     * available via direct URL if needed, but hide it from the admin sidebar.
+     */
+    protected static bool $shouldRegisterNavigation = false;
+
     protected static ?string $navigationIcon = 'heroicon-o-user-group';
 
     protected static ?string $navigationGroup = 'Co-operative';
@@ -52,7 +58,7 @@ class GroupResource extends Resource
                             ->required(),
                         Forms\Components\TextInput::make('currency')
                             ->maxLength(8)
-                            ->default('USD')
+                            ->default(fn (): string => (string) config('app.default_currency'))
                             ->required(),
                     ])->columns(2),
             ]);
@@ -74,9 +80,6 @@ class GroupResource extends Resource
                     ->sortable(),
                 Tables\Columns\TextColumn::make('currency')
                     ->toggleable(),
-                Tables\Columns\TextColumn::make('members_count')
-                    ->counts('members')
-                    ->label('Members'),
                 Tables\Columns\TextColumn::make('updated_at')
                     ->dateTime()
                     ->sortable()
@@ -102,8 +105,6 @@ class GroupResource extends Resource
     {
         return [
             RelationManagers\MembersRelationManager::class,
-            RelationManagers\MonthlyDepositsRelationManager::class,
-            RelationManagers\LoansRelationManager::class,
         ];
     }
 

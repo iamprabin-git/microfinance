@@ -15,7 +15,6 @@ class GroupController extends Controller
 
         $groups = Group::query()
             ->where('company_id', $companyId)
-            ->withCount('members')
             ->orderBy('name')
             ->get();
 
@@ -26,7 +25,6 @@ class GroupController extends Controller
                 'description' => $group->description,
                 'monthly_contribution_amount' => (string) $group->monthly_contribution_amount,
                 'currency' => $group->currency,
-                'members_count' => $group->members_count,
             ]),
         ]);
     }

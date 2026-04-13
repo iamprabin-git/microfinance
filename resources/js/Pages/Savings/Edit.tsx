@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -7,43 +8,51 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/Layouts/AppLayout';
-import type { GroupOption, MembersByGroup } from '@/types/models';
+import type { CompanyMemberOption } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { PiggyBank } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 type SavingEdit = {
     id: number;
-    group_id: number;
     member_id: number;
     period: string;
     amount: string;
     status: string;
     paid_at: string | null;
+    company_approval_status: string;
+    currency: string;
 };
 
 type EditProps = {
     saving: SavingEdit;
-    groups: GroupOption[];
-    membersByGroup: MembersByGroup;
+    members: CompanyMemberOption[];
+    canApproveRecords: boolean;
 };
 
-export default function Edit({ saving, groups, membersByGroup }: EditProps) {
+function memberOptionLabel(m: CompanyMemberOption): string {
+    if (m.member_number != null) {
+        return `${m.name} (#${m.member_number})`;
+    }
+    return m.name;
+}
+
+export default function Edit({ saving, members, canApproveRecords }: EditProps) {
     const { data, setData, put, processing, errors } = useForm({
-        group_id: saving.group_id,
         member_id: saving.member_id,
         period: saving.period,
         amount: saving.amount,
         status: saving.status as 'pending' | 'paid',
         paid_at: saving.paid_at ?? '',
+        company_approval_status: saving.company_approval_status as
+            | 'approved'
+            | 'pending_approval'
+            | 'rejected',
     });
-
-    const memberOptions = useMemo(() => {
-        return membersByGroup[String(data.group_id)] ?? [];
-    }, [membersByGroup, data.group_id]);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
@@ -51,44 +60,81 @@ export default function Edit({ saving, groups, membersByGroup }: EditProps) {
     };
 
     return (
-        <AppLayout title="Edit saving record">
+        <AppLayout
+            title="Edit saving record"
+            titleIcon={PiggyBank}
+            hidePrint={false}
+        >
             <Head title="Edit saving record" />
 
             <Card className="mx-auto max-w-lg">
                 <CardHeader>
-                    <CardTitle>Edit monthly saving</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={PiggyBank} size="sm" />
+                        Edit monthly saving
+                    </CardTitle>
                     <CardDescription>Adjust period, amount, or status.</CardDescription>
                 </CardHeader>
                 <form onSubmit={submit}>
                     <CardContent className="grid gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="group_id">Group</Label>
-                            <select
-                                id="group_id"
-                                className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
-                                value={data.group_id}
-                                onChange={(e) => {
-                                    const gid = Number(e.target.value);
-                                    setData('group_id', gid);
-                                    const first =
-                                        membersByGroup[String(gid)]?.[0]?.id ??
-                                        0;
-                                    setData('member_id', first);
-                                }}
-                                required
-                            >
-                                {groups.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.name} ({g.currency})
+                        {errors.organization ? (
+                            <p className="text-destructive text-sm">
+                                {errors.organization}
+                            </p>
+                        ) : null}
+                        {canApproveRecords ? (
+                            <div className="grid gap-2">
+                                <Label htmlFor="company_approval_status">
+                                    Company approval
+                                </Label>
+                                <select
+                                    id="company_approval_status"
+                                    className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
+                                    value={data.company_approval_status}
+                                    onChange={(e) =>
+                                        setData(
+                                            'company_approval_status',
+                                            e.target.value as typeof data.company_approval_status,
+                                        )
+                                    }
+                                    required
+                                >
+                                    <option value="approved">Approved</option>
+                                    <option value="pending_approval">
+                                        Pending approval
                                     </option>
-                                ))}
-                            </select>
-                            {errors.group_id ? (
-                                <p className="text-destructive text-sm">
-                                    {errors.group_id}
+                                    <option value="rejected">Rejected</option>
+                                </select>
+                                {errors.company_approval_status ? (
+                                    <p className="text-destructive text-sm">
+                                        {errors.company_approval_status}
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : (
+                            <div className="grid gap-1">
+                                <span className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                                    Company approval
+                                </span>
+                                <Badge
+                                    variant={
+                                        saving.company_approval_status ===
+                                        'approved'
+                                            ? 'secondary'
+                                            : 'outline'
+                                    }
+                                >
+                                    {saving.company_approval_status.replace(
+                                        '_',
+                                        ' ',
+                                    )}
+                                </Badge>
+                                <p className="text-muted-foreground text-xs">
+                                    Submitting updates sends this record to a
+                                    company admin for approval.
                                 </p>
-                            ) : null}
-                        </div>
+                            </div>
+                        )}
                         <div className="grid gap-2">
                             <Label htmlFor="member_id">Member</Label>
                             <select
@@ -100,9 +146,9 @@ export default function Edit({ saving, groups, membersByGroup }: EditProps) {
                                 }
                                 required
                             >
-                                {memberOptions.map((m) => (
+                                {members.map((m) => (
                                     <option key={m.id} value={m.id}>
-                                        {m.name}
+                                        {memberOptionLabel(m)}
                                     </option>
                                 ))}
                             </select>
@@ -130,7 +176,9 @@ export default function Edit({ saving, groups, membersByGroup }: EditProps) {
                             ) : null}
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="amount">Amount</Label>
+                            <Label htmlFor="amount">
+                                Amount ({saving.currency})
+                            </Label>
                             <Input
                                 id="amount"
                                 type="number"

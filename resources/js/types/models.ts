@@ -11,7 +11,6 @@ export interface GroupRow {
     description: string | null;
     monthly_contribution_amount: string;
     currency: string;
-    members_count: number;
 }
 
 export interface PublicReviewRow {
@@ -33,10 +32,13 @@ export interface MarketingPageContent {
     title: string;
     subtitle: string | null;
     body: string | null;
+    slug?: string;
+    meta_description?: string | null;
+    hero_image_url?: string | null;
 }
 
 export interface MarketingPageProps {
-    page: MarketingPageContent & { slug?: string };
+    page: MarketingPageContent;
 }
 
 export interface GroupOption {
@@ -47,10 +49,24 @@ export interface GroupOption {
 
 export interface MemberListRow {
     id: number;
+    member_number: number | null;
     name: string;
     email: string | null;
     phone: string | null;
-    group: { id: number; name: string; currency: string };
+    address: string | null;
+    profile_photo_url: string | null;
+}
+
+export interface CompanyMemberOption {
+    id: number;
+    name: string;
+    member_number?: number | null;
+}
+
+export interface MemberMissingSavingsRow {
+    id: number;
+    name: string;
+    member_number: number | null;
 }
 
 export interface SavingListRow {
@@ -58,8 +74,9 @@ export interface SavingListRow {
     period: string;
     amount: string;
     status: string;
+    company_approval_status: string;
     paid_at: string | null;
-    group: { id: number; name: string; currency: string };
+    currency: string;
     member: { id: number; name: string };
 }
 
@@ -69,9 +86,9 @@ export interface LoanListRow {
     issued_at: string;
     due_date: string | null;
     status: string;
+    company_approval_status: string;
     repaid: string;
-    group: { id: number; name: string; currency: string };
+    currency: string;
     member: { id: number; name: string };
 }
 
-export type MembersByGroup = Record<string, { id: number; name: string }[]>;

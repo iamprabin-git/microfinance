@@ -61,4 +61,62 @@ class User extends Authenticatable implements FilamentUser
     {
         return $this->role === UserRole::SuperAdmin;
     }
+
+    public function isCompanyAdmin(): bool
+    {
+        return $this->role === UserRole::CompanyAdmin && $this->company_id !== null;
+    }
+
+    public function isCompanyStaff(): bool
+    {
+        return $this->role === UserRole::CompanyStaff && $this->company_id !== null;
+    }
+
+    public function isCompanyEndUser(): bool
+    {
+        return $this->role === UserRole::CompanyEndUser && $this->company_id !== null;
+    }
+
+    /**
+     * Staff or admin: can maintain members, loans, and savings in the portal.
+     */
+    public function canManageCompanyOperationalData(): bool
+    {
+        return $this->isCompanyAdmin() || $this->isCompanyStaff();
+    }
+
+    public function canApproveCompanyPortalRecords(): bool
+    {
+        return $this->isCompanyAdmin();
+    }
+
+    /**
+     * Any company-scoped portal role (including read-only and end users).
+     *
+     * @return list<UserRole>
+     */
+    public static function companyWebRoles(): array
+    {
+        return [
+            UserRole::CompanyAdmin,
+            UserRole::CompanyUser,
+            UserRole::CompanyStaff,
+            UserRole::CompanyEndUser,
+        ];
+    }
+
+    public function belongsToCompanyWebPortal(): bool
+    {
+        return $this->company_id !== null
+            && in_array($this->role, self::companyWebRoles(), true);
+    }
+
+    public function memberEmailMatches(?string $memberEmail): bool
+    {
+        if ($memberEmail === null || $memberEmail === '') {
+            return false;
+        }
+
+        return strcasecmp(trim($memberEmail), trim($this->email)) === 0;
+    }
 }

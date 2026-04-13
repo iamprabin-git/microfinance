@@ -2,25 +2,56 @@
 
 namespace App\Models;
 
-use App\Models\Concerns\BelongsToCompanyViaGroup;
+use App\Models\Concerns\BelongsToCompany;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Member extends Model
 {
-    use BelongsToCompanyViaGroup;
+    use BelongsToCompany;
 
     protected $fillable = [
-        'group_id',
+        'company_id',
         'name',
         'email',
         'phone',
+        'address',
+        'profile_photo_path',
     ];
 
-    public function group(): BelongsTo
+    protected function casts(): array
     {
-        return $this->belongsTo(Group::class);
+        return [
+            'member_number' => 'integer',
+        ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Member $member): void {
+            if ($member->member_number !== null) {
+                return;
+            }
+            $next = (int) static::query()
+                ->where('company_id', $member->company_id)
+                ->max('member_number');
+            $member->member_number = $next + 1;
+        });
+    }
+
+    public function profilePhotoPublicUrl(): ?string
+    {
+        if ($this->profile_photo_path === null || $this->profile_photo_path === '') {
+            return null;
+        }
+
+        return asset('storage/'.$this->profile_photo_path);
+    }
+
+    public function company(): BelongsTo
+    {
+        return $this->belongsTo(Company::class);
     }
 
     public function monthlyDeposits(): HasMany

@@ -17,6 +17,11 @@ class UserResource extends Resource
 {
     protected static ?string $model = User::class;
 
+    public static function shouldRegisterNavigation(): bool
+    {
+        return false;
+    }
+
     protected static ?string $navigationIcon = 'heroicon-o-users';
 
     protected static ?string $navigationGroup = 'Platform';
@@ -47,6 +52,8 @@ class UserResource extends Resource
                         UserRole::SuperAdmin->value => UserRole::SuperAdmin->label(),
                         UserRole::CompanyAdmin->value => UserRole::CompanyAdmin->label(),
                         UserRole::CompanyUser->value => UserRole::CompanyUser->label(),
+                        UserRole::CompanyStaff->value => UserRole::CompanyStaff->label(),
+                        UserRole::CompanyEndUser->value => UserRole::CompanyEndUser->label(),
                     ])
                     ->required()
                     ->live(),
@@ -57,10 +64,14 @@ class UserResource extends Resource
                     ->visible(fn (Get $get): bool => in_array($get('role'), [
                         UserRole::CompanyAdmin->value,
                         UserRole::CompanyUser->value,
+                        UserRole::CompanyStaff->value,
+                        UserRole::CompanyEndUser->value,
                     ], true))
                     ->required(fn (Get $get): bool => in_array($get('role'), [
                         UserRole::CompanyAdmin->value,
                         UserRole::CompanyUser->value,
+                        UserRole::CompanyStaff->value,
+                        UserRole::CompanyEndUser->value,
                     ], true)),
             ]);
     }

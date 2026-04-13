@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\Member;
 use App\Models\User;
 
@@ -10,35 +9,47 @@ class MemberPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $this->inCompanyPortal($user);
+        return $user->belongsToCompanyWebPortal();
     }
 
     public function view(User $user, Member $member): bool
     {
-        return $this->companyMatches($user, $member->group->company_id);
+        if (! $this->companyMatches($user, (int) $member->company_id)) {
+            return false;
+        }
+
+        if ($user->isCompanyEndUser()) {
+            return $user->memberEmailMatches($member->email);
+        }
+
+        return $user->belongsToCompanyWebPortal();
     }
 
     public function create(User $user): bool
     {
-        return $user->role === UserRole::CompanyAdmin && $user->company_id !== null;
+        return $user->canManageCompanyOperationalData();
     }
 
     public function update(User $user, Member $member): bool
     {
-        return $user->role === UserRole::CompanyAdmin
-            && $this->companyMatches($user, $member->group->company_id);
+        return $user->canManageCompanyOperationalData()
+            && $this->companyMatches($user, (int) $member->company_id);
     }
 
     public function delete(User $user, Member $member): bool
     {
-        return $user->role === UserRole::CompanyAdmin
-            && $this->companyMatches($user, $member->group->company_id);
+        return $user->canManageCompanyOperationalData()
+            && $this->companyMatches($user, (int) $member->company_id);
     }
 
-    private function inCompanyPortal(User $user): bool
+    /**
+     * Create a portal end user tied to this member (same email as member).
+     */
+    public function inviteEndUser(User $user, Member $member): bool
     {
-        return in_array($user->role, [UserRole::CompanyAdmin, UserRole::CompanyUser], true)
-            && $user->company_id !== null;
+        return $user->isCompanyAdmin()
+            && $this->companyMatches($user, (int) $member->company_id)
+            && filled($member->email);
     }
 
     private function companyMatches(User $user, int $companyId): bool

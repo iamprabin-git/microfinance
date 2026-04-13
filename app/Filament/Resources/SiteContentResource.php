@@ -31,6 +31,7 @@ class SiteContentResource extends Resource
             'about' => 'About',
             'contact' => 'Contact',
             'prices' => 'Pricing',
+            'features' => 'Features',
         ];
 
         return $form
@@ -49,6 +50,22 @@ class SiteContentResource extends Resource
                     ->maxLength(255),
                 Forms\Components\TextInput::make('subtitle')
                     ->maxLength(255),
+                Forms\Components\Textarea::make('meta_description')
+                    ->label('Meta description')
+                    ->rows(2)
+                    ->maxLength(512)
+                    ->columnSpanFull()
+                    ->helperText('Used for search engines and social previews on the public site.'),
+                Forms\Components\FileUpload::make('hero_image')
+                    ->label('Hero image')
+                    ->image()
+                    ->disk('public')
+                    ->directory('site-heroes')
+                    ->visibility('public')
+                    ->imageEditor()
+                    ->nullable()
+                    ->columnSpanFull()
+                    ->helperText('Wide image (about 1600×800) works best. Leave empty to use a styled gradient on the public page.'),
                 Forms\Components\Textarea::make('body')
                     ->rows(16)
                     ->columnSpanFull()

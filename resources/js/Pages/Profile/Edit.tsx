@@ -5,8 +5,10 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import AppLayout from '@/Layouts/AppLayout';
 import { Head } from '@inertiajs/react';
+import { KeyRound, Trash2, User, UserCircle } from 'lucide-react';
 import DeleteUserForm from './Partials/DeleteUserForm';
 import UpdatePasswordForm from './Partials/UpdatePasswordForm';
 import UpdateProfileInformationForm from './Partials/UpdateProfileInformationForm';
@@ -18,13 +20,16 @@ type EditProps = {
 
 export default function Edit({ mustVerifyEmail, status }: EditProps) {
     return (
-        <AppLayout title="Profile">
+        <AppLayout title="Profile" titleIcon={UserCircle}>
             <Head title="Profile" />
 
             <div className="max-w-2xl space-y-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Profile information</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={User} size="sm" />
+                            Profile information
+                        </CardTitle>
                         <CardDescription>
                             Update your name and email address.
                         </CardDescription>
@@ -39,7 +44,10 @@ export default function Edit({ mustVerifyEmail, status }: EditProps) {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Password</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={KeyRound} size="sm" />
+                            Password
+                        </CardTitle>
                         <CardDescription>
                             Use a long, random password to stay secure.
                         </CardDescription>
@@ -51,7 +59,10 @@ export default function Edit({ mustVerifyEmail, status }: EditProps) {
 
                 <Card className="border-destructive/30">
                     <CardHeader>
-                        <CardTitle>Delete account</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={Trash2} size="sm" />
+                            Delete account
+                        </CardTitle>
                         <CardDescription>
                             Permanently remove your account and its data from
                             this organization.

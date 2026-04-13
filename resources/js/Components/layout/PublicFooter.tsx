@@ -1,5 +1,8 @@
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
+import { Building2, Package, Shield, Sparkles } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 type PublicFooterProps = {
@@ -17,7 +20,7 @@ export default function PublicFooter({
         return (
             <footer
                 className={cn(
-                    'border-t border-border/60 bg-muted/20 py-6 text-center',
+                    'print:hidden border-t border-border/60 bg-muted/20 py-6 text-center',
                     className,
                 )}
             >
@@ -45,7 +48,7 @@ export default function PublicFooter({
     return (
         <footer
             className={cn(
-                'border-t border-border/60 bg-muted/25 dark:bg-muted/10',
+                'print:hidden border-t border-border/60 bg-muted/25 dark:bg-muted/10',
                 className,
             )}
         >
@@ -54,8 +57,12 @@ export default function PublicFooter({
                     <div className="sm:col-span-2 lg:col-span-1">
                         <Link
                             href={route('home')}
-                            className="text-lg font-semibold tracking-tight"
+                            className="flex items-center gap-2 text-lg font-semibold tracking-tight"
                         >
+                            <Sparkles
+                                className="text-muted-foreground size-5 shrink-0"
+                                aria-hidden
+                            />
                             Samuh
                         </Link>
                         <p className="text-muted-foreground mt-3 max-w-xs text-sm leading-relaxed">
@@ -64,7 +71,10 @@ export default function PublicFooter({
                             can trust.
                         </p>
                     </div>
-                    <FooterCol title="Product">
+                    <FooterCol title="Product" icon={Package}>
+                        <FooterLink href={route('marketing.features')}>
+                            Features
+                        </FooterLink>
                         <FooterLink href={route('marketing.pricing')}>
                             Pricing
                         </FooterLink>
@@ -75,7 +85,7 @@ export default function PublicFooter({
                             Company portal
                         </FooterLink>
                     </FooterCol>
-                    <FooterCol title="Company">
+                    <FooterCol title="Company" icon={Building2}>
                         <FooterLink href={route('marketing.about')}>
                             About
                         </FooterLink>
@@ -84,7 +94,7 @@ export default function PublicFooter({
                         </FooterLink>
                         <FooterLink href={route('home')}>Home</FooterLink>
                     </FooterCol>
-                    <FooterCol title="Staff">
+                    <FooterCol title="Staff" icon={Shield}>
                         <FooterLink href="/admin/login">Admin login</FooterLink>
                     </FooterCol>
                 </div>
@@ -101,14 +111,21 @@ export default function PublicFooter({
 
 function FooterCol({
     title,
+    icon,
     children,
 }: {
     title: string;
+    icon: LucideIcon;
     children: ReactNode;
 }) {
     return (
         <div>
-            <h2 className="text-foreground text-sm font-semibold tracking-wide">
+            <h2 className="text-foreground flex items-center gap-2 text-sm font-semibold tracking-wide">
+                <HeadingIcon
+                    icon={icon}
+                    size="sm"
+                    className="text-foreground/70"
+                />
                 {title}
             </h2>
             <ul className="mt-4 flex flex-col gap-3">{children}</ul>

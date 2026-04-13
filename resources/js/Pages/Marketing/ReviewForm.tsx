@@ -7,10 +7,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { MessageSquarePlus } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 export default function ReviewForm() {
@@ -26,12 +28,15 @@ export default function ReviewForm() {
     };
 
     return (
-        <PublicLayout title="Write a review">
+        <PublicLayout title="Write a review" titleIcon={MessageSquarePlus}>
             <Head title="Write a review" />
 
             <Card className="mx-auto max-w-lg">
                 <CardHeader>
-                    <CardTitle>Share your experience</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={MessageSquarePlus} size="sm" />
+                        Share your experience
+                    </CardTitle>
                     <CardDescription>
                         Submissions are reviewed before they appear publicly.
                     </CardDescription>

@@ -7,83 +7,97 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/Layouts/AppLayout';
-import type { GroupOption, MembersByGroup } from '@/types/models';
+import type { CompanyMemberOption } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
-import { useMemo } from 'react';
+import { PiggyBank } from 'lucide-react';
 import type { FormEventHandler } from 'react';
+import { useEffect } from 'react';
 
 type CreateProps = {
-    groups: GroupOption[];
-    membersByGroup: MembersByGroup;
+    members: CompanyMemberOption[];
+    currency: string;
+    default_member_id?: number | null;
+    blockedReason?: string | null;
 };
 
-export default function Create({ groups, membersByGroup }: CreateProps) {
-    const initialGroupId = groups[0]?.id ?? 0;
-    const firstMemberId =
-        membersByGroup[String(initialGroupId)]?.[0]?.id ?? 0;
+function memberOptionLabel(m: CompanyMemberOption): string {
+    if (m.member_number != null) {
+        return `${m.name} (#${m.member_number})`;
+    }
+    return m.name;
+}
+
+export default function Create({
+    members,
+    currency,
+    default_member_id = null,
+    blockedReason = null,
+}: CreateProps) {
+    const resolvedDefault =
+        default_member_id != null &&
+        members.some((m) => m.id === default_member_id)
+            ? default_member_id
+            : (members[0]?.id ?? 0);
 
     const { data, setData, post, processing, errors } = useForm({
-        group_id: initialGroupId,
-        member_id: firstMemberId,
+        member_id: resolvedDefault,
         period: new Date().toISOString().slice(0, 10),
         amount: '',
         status: 'pending' as 'pending' | 'paid',
         paid_at: '',
     });
 
-    const memberOptions = useMemo(() => {
-        return membersByGroup[String(data.group_id)] ?? [];
-    }, [membersByGroup, data.group_id]);
+    useEffect(() => {
+        if (
+            default_member_id != null &&
+            members.some((m) => m.id === default_member_id)
+        ) {
+            setData('member_id', default_member_id);
+        }
+    }, [default_member_id, members, setData]);
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
         post(route('savings.store'));
     };
 
+    const disabled = processing || members.length === 0 || Boolean(blockedReason);
+
     return (
-        <AppLayout title="Add saving record">
+        <AppLayout
+            title="Add saving record"
+            titleIcon={PiggyBank}
+            hidePrint={false}
+        >
             <Head title="Add saving record" />
 
             <Card className="mx-auto max-w-lg">
                 <CardHeader>
-                    <CardTitle>Monthly saving</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={PiggyBank} size="sm" />
+                        Monthly saving
+                    </CardTitle>
                     <CardDescription>
-                        One row per member per calendar month.
+                        One row per member per calendar month. Amounts use your
+                        organization&apos;s reporting currency ({currency}).
                     </CardDescription>
                 </CardHeader>
                 <form onSubmit={submit}>
                     <CardContent className="grid gap-4">
-                        <div className="grid gap-2">
-                            <Label htmlFor="group_id">Group</Label>
-                            <select
-                                id="group_id"
-                                className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
-                                value={data.group_id || ''}
-                                onChange={(e) => {
-                                    const gid = Number(e.target.value);
-                                    setData('group_id', gid);
-                                    const first =
-                                        membersByGroup[String(gid)]?.[0]?.id ??
-                                        0;
-                                    setData('member_id', first);
-                                }}
-                                required
-                            >
-                                {groups.map((g) => (
-                                    <option key={g.id} value={g.id}>
-                                        {g.name} ({g.currency})
-                                    </option>
-                                ))}
-                            </select>
-                            {errors.group_id ? (
-                                <p className="text-destructive text-sm">
-                                    {errors.group_id}
-                                </p>
-                            ) : null}
-                        </div>
+                        {blockedReason ? (
+                            <p className="text-destructive text-sm">
+                                {blockedReason}
+                            </p>
+                        ) : null}
+                        {errors.organization ? (
+                            <p className="text-destructive text-sm">
+                                {errors.organization}
+                            </p>
+                        ) : null}
                         <div className="grid gap-2">
                             <Label htmlFor="member_id">Member</Label>
                             <select
@@ -94,14 +108,14 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                                     setData('member_id', Number(e.target.value))
                                 }
                                 required
-                                disabled={memberOptions.length === 0}
+                                disabled={members.length === 0 || Boolean(blockedReason)}
                             >
-                                {memberOptions.length === 0 ? (
-                                    <option value="">No members in group</option>
+                                {members.length === 0 ? (
+                                    <option value="">No members yet</option>
                                 ) : null}
-                                {memberOptions.map((m) => (
+                                {members.map((m) => (
                                     <option key={m.id} value={m.id}>
-                                        {m.name}
+                                        {memberOptionLabel(m)}
                                     </option>
                                 ))}
                             </select>
@@ -121,6 +135,7 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                                     setData('period', e.target.value)
                                 }
                                 required
+                                disabled={Boolean(blockedReason)}
                             />
                             {errors.period ? (
                                 <p className="text-destructive text-sm">
@@ -129,7 +144,7 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                             ) : null}
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="amount">Amount</Label>
+                            <Label htmlFor="amount">Amount ({currency})</Label>
                             <Input
                                 id="amount"
                                 type="number"
@@ -140,6 +155,7 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                                     setData('amount', e.target.value)
                                 }
                                 required
+                                disabled={Boolean(blockedReason)}
                             />
                             {errors.amount ? (
                                 <p className="text-destructive text-sm">
@@ -159,6 +175,7 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                                         e.target.value as 'pending' | 'paid',
                                     )
                                 }
+                                disabled={Boolean(blockedReason)}
                             >
                                 <option value="pending">Pending</option>
                                 <option value="paid">Paid</option>
@@ -179,6 +196,7 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                                     onChange={(e) =>
                                         setData('paid_at', e.target.value)
                                     }
+                                    disabled={Boolean(blockedReason)}
                                 />
                                 {errors.paid_at ? (
                                     <p className="text-destructive text-sm">
@@ -189,10 +207,7 @@ export default function Create({ groups, membersByGroup }: CreateProps) {
                         ) : null}
                     </CardContent>
                     <CardFooter className="flex flex-wrap justify-between gap-3 border-t bg-muted/30">
-                        <Button
-                            type="submit"
-                            disabled={processing || memberOptions.length === 0}
-                        >
+                        <Button type="submit" disabled={disabled}>
                             {processing ? 'Saving…' : 'Save'}
                         </Button>
                         <Link

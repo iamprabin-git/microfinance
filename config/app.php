@@ -86,6 +86,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default reporting currency (ISO 4217)
+    |--------------------------------------------------------------------------
+    |
+    | Used for new companies, UI fallbacks, and amounts when no company row
+    | is loaded. Nepalese Rupee (NPR) is the default for this deployment.
+    |
+    */
+
+    'default_currency' => env('APP_DEFAULT_CURRENCY', 'NPR'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Encryption Key
     |--------------------------------------------------------------------------
     |

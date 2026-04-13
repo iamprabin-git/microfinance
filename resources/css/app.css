@@ -87,3 +87,16 @@
     @apply font-sans;
   }
 }
+
+@layer utilities {
+  @media print {
+    @page {
+      margin: 12mm;
+    }
+
+    body {
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+  }
+}

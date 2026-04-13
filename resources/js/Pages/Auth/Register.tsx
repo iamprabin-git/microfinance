@@ -7,11 +7,13 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthPageShell from '@/Layouts/AuthPageShell';
 import { cn } from '@/lib/utils';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { UserPlus } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 export default function Register() {
@@ -35,7 +37,10 @@ export default function Register() {
 
             <Card className="w-full max-w-md shadow-md">
                 <CardHeader>
-                    <CardTitle>Create account</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={UserPlus} size="sm" />
+                        Create account
+                    </CardTitle>
                     <CardDescription>
                         Registration may be disabled in this deployment.
                     </CardDescription>

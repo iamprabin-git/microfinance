@@ -7,10 +7,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import AppLayout from '@/Layouts/AppLayout';
 import { cn } from '@/lib/utils';
 import type { LoanListRow } from '@/types/models';
 import { Head, Link, usePage } from '@inertiajs/react';
+import { Landmark } from 'lucide-react';
 
 type IndexProps = {
     loans: LoanListRow[];
@@ -21,7 +23,7 @@ export default function Index({ loans }: IndexProps) {
     const canManage = companyPortal?.canManage ?? false;
 
     return (
-        <AppLayout title="Loans">
+        <AppLayout title="Loans" titleIcon={Landmark} hidePrint={false}>
             <Head title="Loans" />
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -41,9 +43,12 @@ export default function Index({ loans }: IndexProps) {
 
             <Card>
                 <CardHeader>
-                    <CardTitle>Loans</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={Landmark} size="sm" />
+                        Loans
+                    </CardTitle>
                     <CardDescription>
-                        Group-scoped lending to members.
+                        Company-wide lending to members.
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="px-0 sm:px-6">
@@ -53,14 +58,11 @@ export default function Index({ loans }: IndexProps) {
                         </p>
                     ) : (
                         <div className="overflow-x-auto">
-                            <table className="w-full min-w-[44rem] text-sm">
+                            <table className="w-full min-w-[40rem] text-sm">
                                 <thead>
                                     <tr className="border-b text-left">
                                         <th className="px-4 py-3 font-medium">
                                             Member
-                                        </th>
-                                        <th className="px-4 py-3 font-medium">
-                                            Group
                                         </th>
                                         <th className="px-4 py-3 font-medium">
                                             Principal
@@ -73,6 +75,9 @@ export default function Index({ loans }: IndexProps) {
                                         </th>
                                         <th className="px-4 py-3 font-medium">
                                             Status
+                                        </th>
+                                        <th className="px-4 py-3 font-medium">
+                                            Company
                                         </th>
                                         {canManage ? (
                                             <th className="px-4 py-3 font-medium text-end">
@@ -90,16 +95,11 @@ export default function Index({ loans }: IndexProps) {
                                             <td className="px-4 py-3 font-medium">
                                                 {row.member.name}
                                             </td>
-                                            <td className="text-muted-foreground px-4 py-3">
-                                                {row.group.name}
+                                            <td className="px-4 py-3 tabular-nums">
+                                                {row.currency} {row.principal}
                                             </td>
                                             <td className="px-4 py-3 tabular-nums">
-                                                {row.group.currency}{' '}
-                                                {row.principal}
-                                            </td>
-                                            <td className="px-4 py-3 tabular-nums">
-                                                {row.group.currency}{' '}
-                                                {row.repaid}
+                                                {row.currency} {row.repaid}
                                             </td>
                                             <td className="text-muted-foreground px-4 py-3 tabular-nums">
                                                 {row.issued_at}
@@ -113,6 +113,21 @@ export default function Index({ loans }: IndexProps) {
                                                     }
                                                 >
                                                     {row.status}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge
+                                                    variant={
+                                                        row.company_approval_status ===
+                                                        'approved'
+                                                            ? 'secondary'
+                                                            : 'outline'
+                                                    }
+                                                >
+                                                    {row.company_approval_status.replace(
+                                                        /_/g,
+                                                        ' ',
+                                                    )}
                                                 </Badge>
                                             </td>
                                             {canManage ? (

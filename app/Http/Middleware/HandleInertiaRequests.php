@@ -2,7 +2,6 @@
 
 namespace App\Http\Middleware;
 
-use App\Enums\UserRole;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -50,9 +49,10 @@ class HandleInertiaRequests extends Middleware
                     : null,
             ],
             'companyPortal' => [
-                'canManage' => $user
-                    && $user->company_id !== null
-                    && $user->role === UserRole::CompanyAdmin,
+                'canManage' => $user !== null && $user->canManageCompanyOperationalData(),
+                'canApproveRecords' => $user !== null && $user->canApproveCompanyPortalRecords(),
+                'isEndUser' => $user !== null && $user->isCompanyEndUser(),
+                'canInvitePortalUsers' => $user !== null && $user->isCompanyAdmin(),
             ],
         ];
     }

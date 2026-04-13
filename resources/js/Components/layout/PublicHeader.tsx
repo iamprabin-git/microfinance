@@ -28,6 +28,7 @@ export default function PublicHeader() {
         () =>
             [
                 { href: route('home'), label: 'Home' },
+                { href: route('marketing.features'), label: 'Features' },
                 { href: route('marketing.about'), label: 'About' },
                 { href: route('marketing.pricing'), label: 'Pricing' },
                 { href: route('marketing.contact'), label: 'Contact' },
@@ -45,7 +46,7 @@ export default function PublicHeader() {
         );
 
     return (
-        <header className="sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
+        <header className="print:hidden sticky top-0 z-50 border-b border-border/60 bg-background/80 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
             <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 sm:h-16 sm:px-6 lg:px-8">
                 <Link
                     href={route('home')}
@@ -151,7 +152,11 @@ export default function PublicHeader() {
                         id="public-mobile-menu"
                     >
                         <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
-                            <DialogTitle className="text-base font-semibold tracking-tight">
+                            <DialogTitle className="flex items-center gap-2 text-base font-semibold tracking-tight">
+                                <Menu
+                                    className="text-muted-foreground size-5 shrink-0"
+                                    aria-hidden
+                                />
                                 Menu
                             </DialogTitle>
                             <Button

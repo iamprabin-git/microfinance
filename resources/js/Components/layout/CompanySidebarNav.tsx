@@ -3,11 +3,11 @@ import { HeadingIcon } from '@/components/ui/heading-icon';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import {
+    FileSpreadsheet,
     Landmark,
     LayoutDashboard,
     PiggyBank,
     Users,
-    UsersRound,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -19,9 +19,18 @@ export type CompanyNavItem = {
     icon: LucideIcon;
 };
 
-export function buildCompanyNavItems(path: string): CompanyNavItem[] {
+type CompanyNavOptions = {
+    isEndUser?: boolean;
+};
+
+export function buildCompanyNavItems(
+    path: string,
+    options?: CompanyNavOptions,
+): CompanyNavItem[] {
     const p = path.split('?')[0] ?? path;
-    return [
+    const isEndUser = options?.isEndUser ?? false;
+
+    const items: CompanyNavItem[] = [
         {
             key: 'dashboard',
             href: route('dashboard'),
@@ -29,35 +38,43 @@ export function buildCompanyNavItems(path: string): CompanyNavItem[] {
             active: p === '/dashboard',
             icon: LayoutDashboard,
         },
-        {
-            key: 'groups',
-            href: route('groups.index'),
-            label: 'Groups',
-            active: p.startsWith('/groups'),
-            icon: UsersRound,
-        },
-        {
+    ];
+
+    if (!isEndUser) {
+        items.push({
             key: 'members',
             href: route('members.index'),
             label: 'Members',
             active: p.startsWith('/members'),
             icon: Users,
-        },
+        });
+    }
+
+    items.push(
         {
             key: 'savings',
             href: route('savings.index'),
-            label: 'Savings',
+            label: isEndUser ? 'My savings' : 'Savings',
             active: p.startsWith('/savings'),
             icon: PiggyBank,
         },
         {
             key: 'loans',
             href: route('loans.index'),
-            label: 'Loans',
+            label: isEndUser ? 'My loans' : 'Loans',
             active: p.startsWith('/loans'),
             icon: Landmark,
         },
-    ];
+        {
+            key: 'financial-statements',
+            href: route('financial-statements.index'),
+            label: 'Statements',
+            active: p.startsWith('/financial-statements'),
+            icon: FileSpreadsheet,
+        },
+    );
+
+    return items;
 }
 
 type CompanySidebarNavProps = {

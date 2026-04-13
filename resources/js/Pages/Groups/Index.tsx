@@ -1,4 +1,3 @@
-import { Badge } from '@/components/ui/badge';
 import {
     Card,
     CardContent,
@@ -6,9 +5,11 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import AppLayout from '@/Layouts/AppLayout';
 import type { GroupRow } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
+import { FolderOpen, UsersRound } from 'lucide-react';
 
 type IndexProps = {
     groups: GroupRow[];
@@ -16,13 +17,16 @@ type IndexProps = {
 
 export default function Index({ groups }: IndexProps) {
     return (
-        <AppLayout title="Groups">
+        <AppLayout title="Groups" titleIcon={UsersRound}>
             <Head title="Groups" />
 
             {groups.length === 0 ? (
                 <Card>
                     <CardHeader>
-                        <CardTitle>No groups yet</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={FolderOpen} size="sm" />
+                            No groups yet
+                        </CardTitle>
                         <CardDescription>
                             Create savings groups from the database or an admin
                             tool for now — this page lists groups for your
@@ -33,7 +37,10 @@ export default function Index({ groups }: IndexProps) {
             ) : (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Your groups</CardTitle>
+                        <CardTitle className="flex items-center gap-2">
+                            <HeadingIcon icon={UsersRound} size="sm" />
+                            Your groups
+                        </CardTitle>
                         <CardDescription>
                             Savings circles scoped to your company.
                         </CardDescription>
@@ -48,9 +55,6 @@ export default function Index({ groups }: IndexProps) {
                                         </th>
                                         <th className="px-4 py-3 font-medium">
                                             Monthly
-                                        </th>
-                                        <th className="px-4 py-3 font-medium">
-                                            Members
                                         </th>
                                     </tr>
                                 </thead>
@@ -73,11 +77,6 @@ export default function Index({ groups }: IndexProps) {
                                             <td className="text-muted-foreground px-4 py-3 align-top tabular-nums">
                                                 {g.currency}{' '}
                                                 {g.monthly_contribution_amount}
-                                            </td>
-                                            <td className="px-4 py-3 align-top">
-                                                <Badge variant="secondary">
-                                                    {g.members_count}
-                                                </Badge>
                                             </td>
                                         </tr>
                                     ))}

@@ -1,5 +1,7 @@
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
+import { AppWindow, BadgeCheck, Sparkles } from 'lucide-react';
 
 const year = new Date().getFullYear();
 
@@ -16,14 +18,21 @@ export default function AppFooter({
     return (
         <footer
             className={cn(
-                'mt-auto border-t border-border/60 bg-muted/20 dark:bg-muted/10',
+                'print:hidden mt-auto border-t border-border/60 bg-muted/20 dark:bg-muted/10',
                 className,
             )}
         >
             <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
                 <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
                     <div>
-                        <p className="font-semibold tracking-tight">Portal</p>
+                        <p className="flex items-center gap-2 font-semibold tracking-tight">
+                            <HeadingIcon
+                                icon={AppWindow}
+                                size="sm"
+                                className="text-foreground/70"
+                            />
+                            Portal
+                        </p>
                         <ul className="mt-4 flex flex-col gap-2.5 text-muted-foreground text-sm">
                             <li>
                                 <Link
@@ -35,14 +44,6 @@ export default function AppFooter({
                             </li>
                             {!companySidebarLayout ? (
                                 <>
-                                    <li>
-                                        <Link
-                                            href={route('groups.index')}
-                                            className="transition-colors hover:text-foreground"
-                                        >
-                                            Groups
-                                        </Link>
-                                    </li>
                                     <li>
                                         <Link
                                             href={route('members.index')}
@@ -80,7 +81,14 @@ export default function AppFooter({
                         </ul>
                     </div>
                     <div>
-                        <p className="font-semibold tracking-tight">Samuh</p>
+                        <p className="flex items-center gap-2 font-semibold tracking-tight">
+                            <HeadingIcon
+                                icon={Sparkles}
+                                size="sm"
+                                className="text-foreground/70"
+                            />
+                            Samuh
+                        </p>
                         <ul className="mt-4 flex flex-col gap-2.5 text-muted-foreground text-sm">
                             <li>
                                 <Link
@@ -109,7 +117,14 @@ export default function AppFooter({
                         </ul>
                     </div>
                     <div className="sm:col-span-2 lg:col-span-1">
-                        <p className="font-semibold tracking-tight">Signed in</p>
+                        <p className="flex items-center gap-2 font-semibold tracking-tight">
+                            <HeadingIcon
+                                icon={BadgeCheck}
+                                size="sm"
+                                className="text-foreground/70"
+                            />
+                            Signed in
+                        </p>
                         <p className="text-muted-foreground mt-4 text-sm leading-relaxed">
                             You are using the company workspace. For billing,
                             users, and platform settings, staff use the separate

@@ -4,12 +4,15 @@ namespace App\Filament\Resources;
 
 use App\Enums\CompanyPaymentStatus;
 use App\Filament\Resources\CompanyResource\Pages;
+use App\Filament\Resources\CompanyResource\RelationManagers;
 use App\Models\Company;
+use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Validation\Rules\Password;
 
 class CompanyResource extends Resource
 {
@@ -40,9 +43,44 @@ class CompanyResource extends Resource
                             ->helperText('URL-safe identifier. Leave blank to generate from name on save.'),
                         Forms\Components\Toggle::make('is_active')
                             ->helperText('Inactive companies cannot sign in to the company portal.'),
+                        Forms\Components\TextInput::make('currency')
+                            ->label('Reporting currency')
+                            ->maxLength(8)
+                            ->default(fn (): string => (string) config('app.default_currency'))
+                            ->required()
+                            ->helperText('Used for loans, savings, and financial statements.'),
                         Forms\Components\Textarea::make('notes')
                             ->columnSpanFull(),
                     ])->columns(2),
+                Forms\Components\Section::make('First company login')
+                    ->description('Creates the main company portal account (Company role). They can add staff and invite end users.')
+                    ->schema([
+                        Forms\Components\TextInput::make('portal_admin_name')
+                            ->label('Company account name')
+                            ->required()
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('portal_admin_email')
+                            ->label('Company account email')
+                            ->email()
+                            ->required()
+                            ->maxLength(255)
+                            ->unique(User::class, 'email'),
+                        Forms\Components\TextInput::make('portal_admin_password')
+                            ->label('Temporary password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->same('portal_admin_password_confirmation')
+                            ->rules([Password::defaults()]),
+                        Forms\Components\TextInput::make('portal_admin_password_confirmation')
+                            ->label('Confirm password')
+                            ->password()
+                            ->revealable()
+                            ->required()
+                            ->dehydrated(false),
+                    ])
+                    ->columns(2)
+                    ->hiddenOn('edit'),
                 Forms\Components\Section::make('Payment & subscription')
                     ->description('Use table actions for quick approve/reject after checking the receipt, or set fields manually.')
                     ->schema([
@@ -155,7 +193,9 @@ class CompanyResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            RelationManagers\PortalUsersRelationManager::class,
+            RelationManagers\MonthlyDepositsRelationManager::class,
+            RelationManagers\LoansRelationManager::class,
         ];
     }
 

@@ -1,3 +1,4 @@
+import MarketingHero from '@/Components/marketing/MarketingHero';
 import { buttonVariants } from '@/components/ui/button';
 import {
     Card,
@@ -6,10 +7,20 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { cn } from '@/lib/utils';
 import type { MarketingPageContent, PublicReviewRow } from '@/types/models';
 import { Head, Link } from '@inertiajs/react';
+import {
+    BarChart3,
+    Landmark,
+    MessageCircle,
+    ShieldCheck,
+    Sparkles,
+    Star,
+    Users,
+} from 'lucide-react';
 
 function Stars({ count }: { count: number }) {
     const n = Math.min(5, Math.max(0, Number(count) || 0));
@@ -27,6 +38,37 @@ type WelcomeProps = {
     reviews?: PublicReviewRow[];
 };
 
+const highlights = [
+    {
+        title: 'Members & savings',
+        description:
+            'Onboard members, record monthly deposits, and keep balances clear for every group.',
+        href: route('marketing.features'),
+        icon: Users,
+    },
+    {
+        title: 'Loans & repayments',
+        description:
+            'Structured lending workflows with schedules your committee can audit at a glance.',
+        href: route('marketing.features'),
+        icon: Landmark,
+    },
+    {
+        title: 'Financial statements',
+        description:
+            'Export-ready views for boards, regulators, and annual reporting cycles.',
+        href: route('marketing.pricing'),
+        icon: BarChart3,
+    },
+    {
+        title: 'Roles & approvals',
+        description:
+            'Company admins, staff, and read-only roles — plus platform verification before go-live.',
+        href: route('marketing.about'),
+        icon: ShieldCheck,
+    },
+] as const;
+
 export default function Welcome({
     canLogin,
     page,
@@ -35,24 +77,20 @@ export default function Welcome({
     const heading = page?.title ?? 'Samuh';
     const subtitle =
         page?.subtitle ??
-        'Multi-tenant group accounting — Laravel, Inertia, React, and shadcn/ui.';
+        'Multi-tenant group accounting built for savings co-operatives.';
     const body = page?.body ?? '';
+    const metaDescription =
+        page?.meta_description?.trim() ||
+        `${heading} — transparent savings, loans, and reporting for co-operatives.`;
 
     return (
-        <PublicLayout>
-            <Head title={heading} />
-
-            <div className="mx-auto max-w-2xl text-center">
-                <h1 className="text-4xl font-semibold tracking-tight">
-                    {heading}
-                </h1>
-                <p className="text-muted-foreground mt-3 text-lg">{subtitle}</p>
-                {body ? (
-                    <p className="text-muted-foreground mt-6 whitespace-pre-wrap text-left text-base leading-relaxed">
-                        {body}
-                    </p>
-                ) : null}
-                <div className="mt-8 flex flex-wrap justify-center gap-3">
+        <PublicLayout
+            hero={
+                <MarketingHero
+                    title={heading}
+                    subtitle={subtitle}
+                    imageUrl={page?.hero_image_url}
+                >
                     {canLogin ? (
                         <Link
                             href={route('login')}
@@ -62,6 +100,14 @@ export default function Welcome({
                         </Link>
                     ) : null}
                     <Link
+                        href={route('marketing.features')}
+                        className={cn(
+                            buttonVariants({ variant: 'outline', size: 'lg' }),
+                        )}
+                    >
+                        Explore features
+                    </Link>
+                    <Link
                         href={route('reviews.index')}
                         className={cn(
                             buttonVariants({ variant: 'outline', size: 'lg' }),
@@ -69,12 +115,75 @@ export default function Welcome({
                     >
                         Reviews
                     </Link>
+                </MarketingHero>
+            }
+        >
+            <Head title={heading}>
+                <meta name="description" content={metaDescription} />
+                <meta property="og:title" content={heading} />
+                <meta property="og:description" content={metaDescription} />
+                {page?.hero_image_url ? (
+                    <meta
+                        property="og:image"
+                        content={page.hero_image_url}
+                    />
+                ) : null}
+            </Head>
+
+            {body ? (
+                <section className="mx-auto max-w-3xl">
+                    <div className="rounded-2xl border border-border/70 bg-card/30 p-6 text-center sm:p-8">
+                        <div className="flex justify-center">
+                            <Sparkles
+                                className="text-primary size-8"
+                                aria-hidden
+                            />
+                        </div>
+                        <div className="text-muted-foreground mt-4 whitespace-pre-wrap text-left text-base leading-relaxed">
+                            {body}
+                        </div>
+                    </div>
+                </section>
+            ) : null}
+
+            <section className="mx-auto mt-16 max-w-5xl">
+                <h2 className="text-center text-2xl font-semibold tracking-tight">
+                    Built for transparent co-operative finance
+                </h2>
+                <p className="text-muted-foreground mx-auto mt-3 max-w-2xl text-center text-sm leading-relaxed sm:text-base">
+                    A single workspace for committees, treasurers, and members —
+                    with a polished public site you can tune from the admin panel.
+                </p>
+                <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                    {highlights.map((item) => (
+                        <Link
+                            key={item.title}
+                            href={item.href}
+                            className="group rounded-2xl border border-border/70 bg-card/40 p-5 shadow-sm transition hover:border-primary/35 hover:shadow-md"
+                        >
+                            <HeadingIcon
+                                icon={item.icon}
+                                size="md"
+                                className="text-primary"
+                            />
+                            <h3 className="mt-3 font-semibold tracking-tight group-hover:text-primary">
+                                {item.title}
+                            </h3>
+                            <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+                                {item.description}
+                            </p>
+                        </Link>
+                    ))}
                 </div>
-            </div>
+            </section>
 
             {reviews.length > 0 ? (
-                <section className="mt-16">
-                    <h2 className="mb-6 text-center text-xl font-semibold tracking-tight">
+                <section className="mx-auto mt-20 max-w-5xl">
+                    <h2 className="mb-8 flex items-center justify-center gap-2 text-center text-2xl font-semibold tracking-tight">
+                        <MessageCircle
+                            className="text-muted-foreground size-6 shrink-0"
+                            aria-hidden
+                        />
                         What members say
                     </h2>
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -82,7 +191,8 @@ export default function Welcome({
                             <Card key={r.id}>
                                 <CardHeader className="pb-2">
                                     <div className="flex items-center justify-between gap-2">
-                                        <CardTitle className="text-base">
+                                        <CardTitle className="flex items-center gap-2 text-base">
+                                            <HeadingIcon icon={Star} size="sm" />
                                             {r.title || 'Review'}
                                         </CardTitle>
                                         <Stars count={r.rating} />
@@ -97,7 +207,7 @@ export default function Welcome({
                             </Card>
                         ))}
                     </div>
-                    <p className="mt-6 text-center">
+                    <p className="mt-8 text-center">
                         <Link
                             href={route('reviews.index')}
                             className={cn(

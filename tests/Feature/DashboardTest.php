@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Enums\UserRole;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -24,6 +25,7 @@ class DashboardTest extends TestCase
             'name' => 'Admin User',
             'email' => 'admin@example.test',
             'company_id' => $company->id,
+            'role' => UserRole::CompanyAdmin,
             'email_verified_at' => now(),
         ]);
 
@@ -31,6 +33,7 @@ class DashboardTest extends TestCase
             'name' => 'Staff User',
             'email' => 'staff@example.test',
             'company_id' => $company->id,
+            'role' => UserRole::CompanyStaff,
             'email_verified_at' => now(),
         ]);
 
@@ -40,6 +43,9 @@ class DashboardTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->component('Dashboard')
                 ->has('companyUsers', 2)
+                ->has('pendingApprovals')
+                ->has('financialDashboard')
+                ->has('financialDashboard.monthly_trend', 6)
                 ->where('companyUsers.0.name', fn ($name) => in_array($name, ['Admin User', 'Staff User'], true))
             );
     }

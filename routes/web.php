@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\CompanyPortalUserController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\FinancialStatementController;
 use App\Http\Controllers\GroupController;
 use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanRepaymentController;
@@ -16,6 +18,7 @@ Route::get('/', [MarketingController::class, 'home'])->name('home');
 Route::get('/about', [MarketingController::class, 'about'])->name('marketing.about');
 Route::get('/contact', [MarketingController::class, 'contact'])->name('marketing.contact');
 Route::get('/pricing', [MarketingController::class, 'pricing'])->name('marketing.pricing');
+Route::get('/features', [MarketingController::class, 'features'])->name('marketing.features');
 
 Route::get('/reviews', [ReviewController::class, 'index'])->name('reviews.index');
 Route::middleware(['auth', 'verified', 'company.web'])->group(function () {
@@ -27,11 +30,24 @@ Route::get('/dashboard', DashboardController::class)
     ->middleware(['auth', 'verified', 'company.web'])
     ->name('dashboard');
 
+Route::middleware(['auth', 'verified', 'company.web'])->group(function () {
+    Route::get('/company/users/create', [CompanyPortalUserController::class, 'create'])
+        ->name('company.users.create');
+    Route::post('/company/users', [CompanyPortalUserController::class, 'store'])
+        ->name('company.users.store');
+});
+
 Route::get('/groups', [GroupController::class, 'index'])
     ->middleware(['auth', 'verified', 'company.web'])
     ->name('groups.index');
 
 Route::middleware(['auth', 'verified', 'company.web'])->group(function () {
+    Route::get('/financial-statements', [FinancialStatementController::class, 'index'])
+        ->name('financial-statements.index');
+    Route::get('members/{member}/end-user/create', [MemberController::class, 'createEndUser'])
+        ->name('members.end-user.create');
+    Route::post('members/{member}/end-user', [MemberController::class, 'storeEndUser'])
+        ->name('members.end-user.store');
     Route::resource('members', MemberController::class)->except(['show']);
     Route::resource('savings', MonthlyDepositController::class)
         ->except(['show'])

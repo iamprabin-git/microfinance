@@ -1,8 +1,9 @@
 <?php
 
-namespace App\Filament\Resources\GroupResource\RelationManagers;
+namespace App\Filament\Resources\CompanyResource\RelationManagers;
 
 use App\Enums\DepositStatus;
+use App\Models\Company;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -33,7 +34,7 @@ class MonthlyDepositsRelationManager extends RelationManager
                 Forms\Components\TextInput::make('amount')
                     ->numeric()
                     ->required()
-                    ->prefix(fn (): string => $this->getOwnerRecord()->currency),
+                    ->prefix(fn (): string => $this->companyCurrency()),
                 Forms\Components\Select::make('status')
                     ->options(collect(DepositStatus::cases())->mapWithKeys(
                         fn (DepositStatus $s) => [$s->value => $s->label()]
@@ -71,7 +72,7 @@ class MonthlyDepositsRelationManager extends RelationManager
                     ->date('M Y')
                     ->sortable(),
                 Tables\Columns\TextColumn::make('amount')
-                    ->formatStateUsing(fn ($state, $record): string => $record->group->currency.' '.number_format((float) $state, 2)),
+                    ->formatStateUsing(fn ($state): string => $this->companyCurrency().' '.number_format((float) $state, 2)),
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
                     ->formatStateUsing(fn (?DepositStatus $state): string => $state?->label() ?? '—')
@@ -99,5 +100,13 @@ class MonthlyDepositsRelationManager extends RelationManager
                     Tables\Actions\DeleteBulkAction::make(),
                 ]),
             ]);
+    }
+
+    private function companyCurrency(): string
+    {
+        /** @var Company $company */
+        $company = $this->getOwnerRecord();
+
+        return $company->currency ?? (string) config('app.default_currency');
     }
 }

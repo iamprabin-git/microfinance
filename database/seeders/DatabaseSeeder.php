@@ -7,7 +7,6 @@ use App\Enums\DepositStatus;
 use App\Enums\LoanStatus;
 use App\Enums\UserRole;
 use App\Models\Company;
-use App\Models\Group;
 use App\Models\Loan;
 use App\Models\Member;
 use App\Models\MonthlyDeposit;
@@ -38,11 +37,13 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Acme Cooperative',
                 'is_active' => true,
+                'currency' => config('app.default_currency'),
             ]
         );
 
         $acme->update([
             'is_active' => true,
+            'currency' => $acme->currency ?? config('app.default_currency'),
             'payment_status' => CompanyPaymentStatus::Approved,
             'payment_reviewed_at' => Carbon::now(),
             'payment_receipt_notes' => $acme->payment_receipt_notes ?? 'Demo seed: payment verified.',
@@ -70,21 +71,9 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        $group = Group::query()->firstOrCreate(
-            [
-                'company_id' => $acme->id,
-                'name' => 'Main savings circle',
-            ],
-            [
-                'description' => 'Demo group for members, savings, and loans.',
-                'monthly_contribution_amount' => 50,
-                'currency' => 'USD',
-            ]
-        );
-
         $demoMember = Member::query()->firstOrCreate(
             [
-                'group_id' => $group->id,
+                'company_id' => $acme->id,
                 'email' => 'member.demo@example.com',
             ],
             [
@@ -99,7 +88,7 @@ class DatabaseSeeder extends Seeder
                 'period' => Carbon::now()->startOfMonth()->toDateString(),
             ],
             [
-                'group_id' => $group->id,
+                'company_id' => $acme->id,
                 'amount' => 50,
                 'status' => DepositStatus::Paid,
                 'paid_at' => Carbon::now()->toDateString(),
@@ -108,7 +97,7 @@ class DatabaseSeeder extends Seeder
 
         Loan::query()->firstOrCreate(
             [
-                'group_id' => $group->id,
+                'company_id' => $acme->id,
                 'member_id' => $demoMember->id,
                 'principal' => 200,
                 'issued_at' => Carbon::now()->subMonth()->startOfMonth()->toDateString(),

@@ -19,6 +19,14 @@
         @apply bg-gray-50/80 dark:bg-gray-950/50;
     }
 
+    .fi-dashboard-page .fi-wi-stats-overview {
+        @apply rounded-2xl border border-gray-200/80 bg-white/90 shadow-admin-card dark:border-white/10 dark:bg-gray-900/80;
+    }
+
+    .fi-dashboard-page .fi-wi-admin-welcome .fi-section {
+        @apply rounded-2xl border border-gray-200/80 bg-white/90 shadow-sm dark:border-white/10 dark:bg-gray-900/80;
+    }
+
     .fi-sidebar {
         @apply border-e border-gray-200/80 dark:border-white/10 lg:border-e-0;
     }

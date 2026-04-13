@@ -7,10 +7,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthPageShell from '@/Layouts/AuthPageShell';
 import { Head, Link, useForm } from '@inertiajs/react';
+import { LogIn } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 type LoginProps = {
@@ -50,7 +52,10 @@ export default function Login({ status, canResetPassword }: LoginProps) {
 
             <Card className="w-full max-w-md shadow-md">
                 <CardHeader>
-                    <CardTitle>Sign in</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={LogIn} size="sm" />
+                        Sign in
+                    </CardTitle>
                     <CardDescription>
                         Use the email and password provided by your administrator.
                     </CardDescription>

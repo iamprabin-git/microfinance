@@ -2,7 +2,6 @@
 
 namespace App\Policies;
 
-use App\Enums\UserRole;
 use App\Models\MonthlyDeposit;
 use App\Models\User;
 
@@ -15,30 +14,45 @@ class MonthlyDepositPolicy
 
     public function view(User $user, MonthlyDeposit $monthlyDeposit): bool
     {
-        return $this->companyMatches($user, $monthlyDeposit->group->company_id);
+        if (! $this->companyMatches($user, (int) $monthlyDeposit->company_id)) {
+            return false;
+        }
+
+        if ($user->isCompanyEndUser()) {
+            $monthlyDeposit->loadMissing('member');
+
+            return $user->memberEmailMatches($monthlyDeposit->member?->email);
+        }
+
+        return true;
     }
 
     public function create(User $user): bool
     {
-        return $user->role === UserRole::CompanyAdmin && $user->company_id !== null;
+        return $user->canManageCompanyOperationalData();
     }
 
     public function update(User $user, MonthlyDeposit $monthlyDeposit): bool
     {
-        return $user->role === UserRole::CompanyAdmin
-            && $this->companyMatches($user, $monthlyDeposit->group->company_id);
+        if (! $this->companyMatches($user, (int) $monthlyDeposit->company_id)) {
+            return false;
+        }
+
+        return $user->canManageCompanyOperationalData();
     }
 
     public function delete(User $user, MonthlyDeposit $monthlyDeposit): bool
     {
-        return $user->role === UserRole::CompanyAdmin
-            && $this->companyMatches($user, $monthlyDeposit->group->company_id);
+        if (! $this->companyMatches($user, (int) $monthlyDeposit->company_id)) {
+            return false;
+        }
+
+        return $user->canManageCompanyOperationalData();
     }
 
     private function inCompanyPortal(User $user): bool
     {
-        return in_array($user->role, [UserRole::CompanyAdmin, UserRole::CompanyUser], true)
-            && $user->company_id !== null;
+        return $user->belongsToCompanyWebPortal();
     }
 
     private function companyMatches(User $user, int $companyId): bool

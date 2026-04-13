@@ -7,10 +7,12 @@ import {
     CardHeader,
     CardTitle,
 } from '@/components/ui/card';
+import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AuthPageShell from '@/Layouts/AuthPageShell';
 import { Head, useForm } from '@inertiajs/react';
+import { KeyRound } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 type ResetPasswordProps = {
@@ -39,7 +41,10 @@ export default function ResetPassword({ token, email }: ResetPasswordProps) {
 
             <Card className="w-full max-w-md shadow-md">
                 <CardHeader>
-                    <CardTitle>Set a new password</CardTitle>
+                    <CardTitle className="flex items-center gap-2">
+                        <HeadingIcon icon={KeyRound} size="sm" />
+                        Set a new password
+                    </CardTitle>
                     <CardDescription>
                         Choose a strong password for your account.
                     </CardDescription>

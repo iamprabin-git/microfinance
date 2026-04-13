@@ -2,12 +2,14 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\AdminDashboard;
+use App\Filament\Widgets\AdminWelcomePanel;
+use App\Filament\Widgets\PlatformOverviewStats;
+use App\Http\Middleware\FilamentAuthenticate;
 use Filament\Enums\ThemeMode;
-use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
-use Filament\Pages;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
@@ -48,12 +50,12 @@ class AdminPanelProvider extends PanelProvider
             ->maxContentWidth(MaxWidth::SevenExtraLarge)
             ->simplePageMaxContentWidth(MaxWidth::Large)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
-            ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                AdminDashboard::class,
             ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
+                AdminWelcomePanel::class,
+                PlatformOverviewStats::class,
                 Widgets\AccountWidget::class,
             ])
             ->middleware([
@@ -68,7 +70,7 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->authMiddleware([
-                Authenticate::class,
+                FilamentAuthenticate::class,
             ]);
     }
 }

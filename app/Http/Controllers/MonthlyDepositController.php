@@ -2,10 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CompanyApprovalStatus;
 use App\Enums\DepositStatus;
-use App\Models\Group;
 use App\Models\Member;
 use App\Models\MonthlyDeposit;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -25,10 +26,9 @@ class MonthlyDepositController extends Controller
     {
         $companyId = (int) $request->user()->company_id;
 
-        $savings = MonthlyDeposit::query()
-            ->forCompany($companyId)
+        $savings = $this->savingsQueryForUser($request, $companyId)
             ->with([
-                'group:id,name,currency',
+                'company:id,currency',
                 'member:id,name',
             ])
             ->orderByDesc('period')
@@ -39,30 +39,47 @@ class MonthlyDepositController extends Controller
                 'period' => $row->period->format('Y-m-d'),
                 'amount' => (string) $row->amount,
                 'status' => $row->status->value,
+                'company_approval_status' => $row->company_approval_status->value,
                 'paid_at' => $row->paid_at?->format('Y-m-d'),
-                'group' => [
-                    'id' => $row->group->id,
-                    'name' => $row->group->name,
-                    'currency' => $row->group->currency,
-                ],
+                'currency' => $row->company?->currency ?? config('app.default_currency'),
                 'member' => [
                     'id' => $row->member->id,
                     'name' => $row->member->name,
                 ],
             ]);
 
+        $monthStart = Carbon::today()->startOfMonth()->toDateString();
+        $membersMissingSavings = $this->membersMissingSavingForMonth(
+            $request,
+            $companyId,
+            $monthStart,
+        );
+
         return Inertia::render('Savings/Index', [
             'savings' => $savings,
+            'missing_savings_period_label' => Carbon::today()->format('Y-m'),
+            'members_missing_savings' => $membersMissingSavings,
         ]);
     }
 
     public function create(Request $request): Response
     {
         $companyId = (int) $request->user()->company_id;
+        $company = $request->user()->company;
+
+        $defaultMemberId = null;
+        $rawMemberId = $request->query('member_id');
+        if ($rawMemberId !== null && $rawMemberId !== '') {
+            $mid = (int) $rawMemberId;
+            if ($mid > 0 && Member::query()->forCompany($companyId)->where('id', $mid)->exists()) {
+                $defaultMemberId = $mid;
+            }
+        }
 
         return Inertia::render('Savings/Create', [
-            'groups' => $this->groupOptions($companyId),
-            'membersByGroup' => $this->membersByGroup($companyId),
+            'members' => $this->membersForCompany($companyId),
+            'currency' => $company?->currency ?? config('app.default_currency'),
+            'default_member_id' => $defaultMemberId,
         ]);
     }
 
@@ -71,11 +88,6 @@ class MonthlyDepositController extends Controller
         $companyId = (int) $request->user()->company_id;
 
         $validated = $request->validate([
-            'group_id' => [
-                'required',
-                'integer',
-                Rule::exists('groups', 'id')->where('company_id', $companyId),
-            ],
             'member_id' => ['required', 'integer'],
             'period' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'min:0.01'],
@@ -83,10 +95,7 @@ class MonthlyDepositController extends Controller
             'paid_at' => ['nullable', 'date', 'required_if:status,'.DepositStatus::Paid->value],
         ]);
 
-        $member = Member::query()->findOrFail($validated['member_id']);
-        if ($member->group_id !== (int) $validated['group_id']) {
-            abort(422, 'Member does not belong to the selected group.');
-        }
+        Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
 
         $periodStart = Carbon::parse($validated['period'])->startOfMonth()->toDateString();
 
@@ -101,7 +110,7 @@ class MonthlyDepositController extends Controller
         }
 
         MonthlyDeposit::query()->create([
-            'group_id' => $validated['group_id'],
+            'company_id' => $companyId,
             'member_id' => $validated['member_id'],
             'period' => $periodStart,
             'amount' => $validated['amount'],
@@ -109,6 +118,9 @@ class MonthlyDepositController extends Controller
             'paid_at' => $validated['status'] === DepositStatus::Paid
                 ? ($validated['paid_at'] ?? now()->toDateString())
                 : null,
+            'company_approval_status' => $request->user()->isCompanyAdmin()
+                ? CompanyApprovalStatus::Approved
+                : CompanyApprovalStatus::PendingApproval,
         ]);
 
         return redirect()->route('savings.index')->with('status', 'Saving record created.');
@@ -118,18 +130,21 @@ class MonthlyDepositController extends Controller
     {
         $companyId = (int) $request->user()->company_id;
 
+        $saving->load('company:id,currency');
+
         return Inertia::render('Savings/Edit', [
             'saving' => [
                 'id' => $saving->id,
-                'group_id' => $saving->group_id,
                 'member_id' => $saving->member_id,
                 'period' => $saving->period->format('Y-m-d'),
                 'amount' => (string) $saving->amount,
                 'status' => $saving->status->value,
                 'paid_at' => $saving->paid_at?->format('Y-m-d'),
+                'company_approval_status' => $saving->company_approval_status->value,
+                'currency' => $saving->company?->currency ?? config('app.default_currency'),
             ],
-            'groups' => $this->groupOptions($companyId),
-            'membersByGroup' => $this->membersByGroup($companyId),
+            'members' => $this->membersForCompany($companyId),
+            'canApproveRecords' => $request->user()->canApproveCompanyPortalRecords(),
         ]);
     }
 
@@ -138,11 +153,6 @@ class MonthlyDepositController extends Controller
         $companyId = (int) $request->user()->company_id;
 
         $validated = $request->validate([
-            'group_id' => [
-                'required',
-                'integer',
-                Rule::exists('groups', 'id')->where('company_id', $companyId),
-            ],
             'member_id' => ['required', 'integer'],
             'period' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'min:0.01'],
@@ -150,10 +160,7 @@ class MonthlyDepositController extends Controller
             'paid_at' => ['nullable', 'date', 'required_if:status,'.DepositStatus::Paid->value],
         ]);
 
-        $member = Member::query()->findOrFail($validated['member_id']);
-        if ($member->group_id !== (int) $validated['group_id']) {
-            abort(422, 'Member does not belong to the selected group.');
-        }
+        Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
 
         $periodStart = Carbon::parse($validated['period'])->startOfMonth()->toDateString();
 
@@ -168,16 +175,44 @@ class MonthlyDepositController extends Controller
             ]);
         }
 
-        $saving->update([
-            'group_id' => $validated['group_id'],
+        $validatedStatus = $validated['status'] instanceof DepositStatus
+            ? $validated['status']
+            : DepositStatus::from((string) $validated['status']);
+
+        $newPaidAt = $validatedStatus === DepositStatus::Paid
+            ? ($validated['paid_at'] ?? $saving->paid_at?->toDateString() ?? now()->toDateString())
+            : null;
+
+        $payload = [
+            'company_id' => $saving->company_id,
             'member_id' => $validated['member_id'],
             'period' => $periodStart,
             'amount' => $validated['amount'],
-            'status' => $validated['status'],
-            'paid_at' => $validated['status'] === DepositStatus::Paid
-                ? ($validated['paid_at'] ?? $saving->paid_at ?? now()->toDateString())
-                : null,
-        ]);
+            'status' => $validatedStatus,
+            'paid_at' => $newPaidAt,
+        ];
+
+        if ($request->user()->isCompanyAdmin()) {
+            $payload = array_merge($payload, $request->validate([
+                'company_approval_status' => ['required', Rule::enum(CompanyApprovalStatus::class)],
+            ]));
+        } else {
+            // Financial statements only include approved records. Sending every staff
+            // edit back to "pending" hid updates from reports; re-approval is only
+            // required when financial fields change on an already-approved row.
+            $wasApproved = $saving->company_approval_status === CompanyApprovalStatus::Approved;
+            $materialChanged = $this->savingMaterialFieldsChanged(
+                $saving,
+                $validated,
+                $periodStart,
+                $newPaidAt,
+            );
+            $payload['company_approval_status'] = ($wasApproved && ! $materialChanged)
+                ? CompanyApprovalStatus::Approved
+                : CompanyApprovalStatus::PendingApproval;
+        }
+
+        $saving->update($payload);
 
         return redirect()->route('savings.index')->with('status', 'Saving record updated.');
     }
@@ -190,39 +225,111 @@ class MonthlyDepositController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string, currency: string}>
+     * @return Builder<MonthlyDeposit>
      */
-    private function groupOptions(int $companyId): array
+    private function savingsQueryForUser(Request $request, int $companyId): Builder
     {
-        return Group::query()
-            ->where('company_id', $companyId)
+        $query = MonthlyDeposit::query()->forCompany($companyId);
+
+        if ($request->user()->isCompanyEndUser()) {
+            $email = strtolower(trim($request->user()->email));
+            $query->whereHas('member', function (Builder $m) use ($companyId, $email): void {
+                $m->where('company_id', $companyId)
+                    ->whereNotNull('email')
+                    ->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * @return list<array{id: int, name: string, member_number: int|null}>
+     */
+    private function membersForCompany(int $companyId): array
+    {
+        return Member::query()
+            ->forCompany($companyId)
             ->orderBy('name')
-            ->get()
-            ->map(fn (Group $g) => [
-                'id' => $g->id,
-                'name' => $g->name,
-                'currency' => $g->currency,
+            ->get(['id', 'name', 'member_number'])
+            ->map(fn (Member $m) => [
+                'id' => $m->id,
+                'name' => $m->name,
+                'member_number' => $m->member_number,
             ])
             ->all();
     }
 
     /**
-     * @return array<string, list<array{id: int, name: string}>>
+     * Members with no monthly saving row for the given month (period = first day of month).
+     *
+     * @return list<array{id: int, name: string, member_number: int|null}>
      */
-    private function membersByGroup(int $companyId): array
-    {
-        $members = Member::query()
+    private function membersMissingSavingForMonth(
+        Request $request,
+        int $companyId,
+        string $monthStart,
+    ): array {
+        $withSaving = MonthlyDeposit::query()
             ->forCompany($companyId)
-            ->orderBy('name')
-            ->get(['id', 'group_id', 'name']);
+            ->where('period', $monthStart)
+            ->pluck('member_id')
+            ->unique()
+            ->values();
 
-        $out = [];
-        foreach ($members as $m) {
-            $key = (string) $m->group_id;
-            $out[$key] ??= [];
-            $out[$key][] = ['id' => $m->id, 'name' => $m->name];
+        $q = Member::query()
+            ->forCompany($companyId)
+            ->orderBy('name');
+
+        if ($withSaving->isNotEmpty()) {
+            $q->whereNotIn('id', $withSaving->all());
         }
 
-        return $out;
+        if ($request->user()->isCompanyEndUser()) {
+            $email = strtolower(trim($request->user()->email));
+            $q->whereNotNull('email')
+                ->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
+        }
+
+        return $q->get(['id', 'name', 'member_number'])
+            ->map(fn (Member $m) => [
+                'id' => $m->id,
+                'name' => $m->name,
+                'member_number' => $m->member_number,
+            ])
+            ->all();
+    }
+
+    /**
+     * @param  array{member_id: int, amount: mixed, status: DepositStatus|string, paid_at?: string|null}  $validated
+     */
+    private function savingMaterialFieldsChanged(
+        MonthlyDeposit $saving,
+        array $validated,
+        string $periodStart,
+        ?string $newPaidAt,
+    ): bool {
+        $newStatus = $validated['status'] instanceof DepositStatus
+            ? $validated['status']
+            : DepositStatus::from($validated['status']);
+
+        if (abs((float) $validated['amount'] - (float) $saving->amount) > 0.000001) {
+            return true;
+        }
+        if ((int) $validated['member_id'] !== (int) $saving->member_id) {
+            return true;
+        }
+        if ($periodStart !== $saving->period->toDateString()) {
+            return true;
+        }
+        if ($newStatus !== $saving->status) {
+            return true;
+        }
+        $oldPaidAt = $saving->paid_at?->toDateString();
+        if ($newStatus === DepositStatus::Paid && $newPaidAt !== $oldPaidAt) {
+            return true;
+        }
+
+        return false;
     }
 }
