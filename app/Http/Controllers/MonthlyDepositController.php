@@ -4,8 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Enums\CompanyApprovalStatus;
 use App\Enums\DepositStatus;
+use App\Enums\ProductType;
 use App\Models\Member;
 use App\Models\MonthlyDeposit;
+use App\Models\Product;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -29,7 +31,7 @@ class MonthlyDepositController extends Controller
         $savings = $this->savingsQueryForUser($request, $companyId)
             ->with([
                 'company:id,currency',
-                'member:id,name',
+                'member:id,name,member_number,savings_account_number',
             ])
             ->orderByDesc('period')
             ->orderBy('member_id')
@@ -45,6 +47,8 @@ class MonthlyDepositController extends Controller
                 'member' => [
                     'id' => $row->member->id,
                     'name' => $row->member->name,
+                    'member_number' => $row->member->member_number,
+                    'savings_account_number' => $row->member->savings_account_number,
                 ],
             ]);
 
@@ -76,10 +80,19 @@ class MonthlyDepositController extends Controller
             }
         }
 
+        $members = $this->membersForSavingsForms($companyId);
+        $membersPendingSavingsAccount = $this->membersPendingSavingsAccount($companyId);
+        $blockedReason = $members === []
+            ? 'No member is ready for monthly savings yet. Open a savings account for at least one registered member first.'
+            : null;
+
         return Inertia::render('Savings/Create', [
-            'members' => $this->membersForCompany($companyId),
+            'members' => $members,
+            'members_pending_savings_account' => $membersPendingSavingsAccount,
+            'saving_products' => $this->savingProductsForCompany($companyId),
             'currency' => $company?->currency ?? config('app.default_currency'),
             'default_member_id' => $defaultMemberId,
+            'blockedReason' => $blockedReason,
         ]);
     }
 
@@ -95,7 +108,8 @@ class MonthlyDepositController extends Controller
             'paid_at' => ['nullable', 'date', 'required_if:status,'.DepositStatus::Paid->value],
         ]);
 
-        Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
+        $member = Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
+        $this->ensureMemberEligibleForSavingRecords($member);
 
         $periodStart = Carbon::parse($validated['period'])->startOfMonth()->toDateString();
 
@@ -143,7 +157,7 @@ class MonthlyDepositController extends Controller
                 'company_approval_status' => $saving->company_approval_status->value,
                 'currency' => $saving->company?->currency ?? config('app.default_currency'),
             ],
-            'members' => $this->membersForCompany($companyId),
+            'members' => $this->membersForSavingsForms($companyId, (int) $saving->member_id),
             'canApproveRecords' => $request->user()->canApproveCompanyPortalRecords(),
         ]);
     }
@@ -160,7 +174,8 @@ class MonthlyDepositController extends Controller
             'paid_at' => ['nullable', 'date', 'required_if:status,'.DepositStatus::Paid->value],
         ]);
 
-        Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
+        $member = Member::query()->forCompany($companyId)->findOrFail($validated['member_id']);
+        $this->ensureMemberEligibleForSavingRecords($member);
 
         $periodStart = Carbon::parse($validated['period'])->startOfMonth()->toDateString();
 
@@ -244,18 +259,90 @@ class MonthlyDepositController extends Controller
     }
 
     /**
-     * @return list<array{id: int, name: string, member_number: int|null}>
+     * Members who may receive monthly savings rows: registered (serial) and savings account opened.
+     *
+     * @return list<array{id: int, name: string, member_number: int|null, savings_account_number: string|null}>
      */
-    private function membersForCompany(int $companyId): array
+    private function membersForSavingsForms(int $companyId, ?int $alwaysIncludeMemberId = null): array
     {
         return Member::query()
             ->forCompany($companyId)
+            ->whereNotNull('member_number')
+            ->where(function (Builder $w) use ($alwaysIncludeMemberId): void {
+                $w->where(function (Builder $inner): void {
+                    $inner->whereNotNull('savings_account_number')
+                        ->where('savings_account_number', '!=', '');
+                });
+                if ($alwaysIncludeMemberId !== null && $alwaysIncludeMemberId > 0) {
+                    $w->orWhere('id', $alwaysIncludeMemberId);
+                }
+            })
             ->orderBy('name')
-            ->get(['id', 'name', 'member_number'])
+            ->get(['id', 'name', 'member_number', 'savings_account_number'])
             ->map(fn (Member $m) => [
                 'id' => $m->id,
                 'name' => $m->name,
                 'member_number' => $m->member_number,
+                'savings_account_number' => $m->savings_account_number,
+            ])
+            ->all();
+    }
+
+    private function ensureMemberEligibleForSavingRecords(Member $member): void
+    {
+        if ($member->member_number === null) {
+            throw ValidationException::withMessages([
+                'member_id' => 'This member is not fully registered (no serial number). Complete member registration first.',
+            ]);
+        }
+
+        if (! filled($member->savings_account_number)) {
+            throw ValidationException::withMessages([
+                'member_id' => 'Open a savings account for this member before recording monthly savings.',
+            ]);
+        }
+    }
+
+    /**
+     * Registered members who still need a savings account number.
+     *
+     * @return list<array{id: int, name: string, member_number: int|null, savings_account_number: string|null}>
+     */
+    private function membersPendingSavingsAccount(int $companyId): array
+    {
+        return Member::query()
+            ->forCompany($companyId)
+            ->whereNotNull('member_number')
+            ->where(function (Builder $q): void {
+                $q->whereNull('savings_account_number')
+                    ->orWhere('savings_account_number', '');
+            })
+            ->orderBy('name')
+            ->get(['id', 'name', 'member_number', 'savings_account_number'])
+            ->map(fn (Member $m) => [
+                'id' => $m->id,
+                'name' => $m->name,
+                'member_number' => $m->member_number,
+                'savings_account_number' => $m->savings_account_number,
+            ])
+            ->all();
+    }
+
+    /**
+     * @return list<array{id: int, code: string, name: string}>
+     */
+    private function savingProductsForCompany(int $companyId): array
+    {
+        return Product::query()
+            ->forCompany($companyId)
+            ->where('type', ProductType::Savings->value)
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn (Product $p) => [
+                'id' => (int) $p->id,
+                'code' => (string) $p->code,
+                'name' => (string) $p->name,
             ])
             ->all();
     }
@@ -279,6 +366,9 @@ class MonthlyDepositController extends Controller
 
         $q = Member::query()
             ->forCompany($companyId)
+            ->whereNotNull('member_number')
+            ->whereNotNull('savings_account_number')
+            ->where('savings_account_number', '!=', '')
             ->orderBy('name');
 
         if ($withSaving->isNotEmpty()) {
@@ -291,11 +381,12 @@ class MonthlyDepositController extends Controller
                 ->whereRaw('LOWER(TRIM(email)) = ?', [$email]);
         }
 
-        return $q->get(['id', 'name', 'member_number'])
+        return $q->get(['id', 'name', 'member_number', 'savings_account_number'])
             ->map(fn (Member $m) => [
                 'id' => $m->id,
                 'name' => $m->name,
                 'member_number' => $m->member_number,
+                'savings_account_number' => $m->savings_account_number,
             ])
             ->all();
     }

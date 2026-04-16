@@ -15,6 +15,7 @@ declare module '@inertiajs/core' {
                         name: string;
                         slug: string;
                     } | null;
+                    profile_photo_url: string | null;
                 } | null;
             };
             flash?: {

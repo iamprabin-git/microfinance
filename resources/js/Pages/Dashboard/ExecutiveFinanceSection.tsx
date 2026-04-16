@@ -11,19 +11,7 @@ import { HeadingIcon } from '@/components/ui/heading-icon';
 import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import { BarChart3, Landmark, PiggyBank, TrendingUp } from 'lucide-react';
-import {
-    CartesianGrid,
-    Cell,
-    Legend,
-    Line,
-    LineChart,
-    Pie,
-    PieChart,
-    ResponsiveContainer,
-    Tooltip,
-    XAxis,
-    YAxis,
-} from 'recharts';
+import { Cell, Legend, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 export type FinancialDashboardPayload = {
     as_of: string;
@@ -305,10 +293,10 @@ export default function ExecutiveFinanceSection({
                     <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-2 space-y-0">
                         <div className="min-w-0 flex-1">
                             <CardTitle className="text-base">
-                                Income vs expenses
+                                Income vs expenses (last 6 months)
                             </CardTitle>
                             <CardDescription>
-                                Last six calendar months (cash-style activity)
+                                Compact monthly view of inflows, outflows, and net result.
                             </CardDescription>
                         </div>
                         <span
@@ -320,65 +308,40 @@ export default function ExecutiveFinanceSection({
                             Open P&amp;L
                         </span>
                     </CardHeader>
-                    <CardContent className="h-[300px] w-full pl-0 pr-2 pt-2">
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart
-                            data={monthly_trend}
-                            margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                        >
-                            <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                            <XAxis
-                                dataKey="label"
-                                tick={{ fontSize: 11 }}
-                                className="text-muted-foreground"
-                            />
-                            <YAxis
-                                tick={{ fontSize: 11 }}
-                                className="text-muted-foreground"
-                                tickFormatter={(v) =>
-                                    new Intl.NumberFormat(undefined, {
-                                        notation: 'compact',
-                                        maximumFractionDigits: 1,
-                                    }).format(Number(v))
-                                }
-                            />
-                            <Tooltip
-                                formatter={(value: number) => [fmt(value), '']}
-                                labelClassName="text-foreground"
-                                contentStyle={{
-                                    borderRadius: '0.5rem',
-                                    fontSize: '0.75rem',
-                                }}
-                            />
-                            <Legend wrapperStyle={{ fontSize: '12px' }} />
-                            <Line
-                                type="monotone"
-                                dataKey="income"
-                                name="Income"
-                                stroke={CHART_COLORS[0]}
-                                strokeWidth={2}
-                                dot={{ r: 3 }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="expenses"
-                                name="Expenses"
-                                stroke={CHART_COLORS[3]}
-                                strokeWidth={2}
-                                dot={{ r: 3 }}
-                            />
-                            <Line
-                                type="monotone"
-                                dataKey="net"
-                                name="Net"
-                                stroke={CHART_COLORS[1]}
-                                strokeWidth={2}
-                                strokeDasharray="5 4"
-                                dot={{ r: 2 }}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </CardContent>
+                    <CardContent className="space-y-3">
+                        {monthly_trend.length === 0 ? (
+                            <p className="text-muted-foreground text-sm">
+                                No recent income or expenses to summarise.
+                            </p>
+                        ) : (
+                            <div className="divide-border/60 grid gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs sm:text-sm">
+                                {monthly_trend.slice(-6).map((row) => (
+                                    <div
+                                        key={row.key}
+                                        className="flex flex-wrap items-baseline justify-between gap-2"
+                                    >
+                                        <div className="flex flex-col">
+                                            <span className="font-medium text-foreground">
+                                                {row.label}
+                                            </span>
+                                            <span className="text-muted-foreground text-[11px] sm:text-xs">
+                                                Income {fmt(row.income)} · Expenses{' '}
+                                                {fmt(row.expenses)}
+                                            </span>
+                                        </div>
+                                        <span
+                                            className={cn(
+                                                'tabular-nums text-sm font-semibold',
+                                                row.net < 0 && 'text-destructive',
+                                            )}
+                                        >
+                                            {fmt(row.net)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
                 </Card>
             </Link>
 

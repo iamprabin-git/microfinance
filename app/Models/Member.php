@@ -13,6 +13,7 @@ class Member extends Model
 
     protected $fillable = [
         'company_id',
+        'savings_account_number',
         'name',
         'email',
         'phone',

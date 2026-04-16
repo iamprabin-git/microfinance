@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
-use Database\Factories\UserFactory;
+use App\Models\ChartOfAccount;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -23,6 +23,8 @@ class User extends Authenticatable implements FilamentUser
         'password',
         'role',
         'company_id',
+        'chart_of_account_id',
+        'profile_photo_path',
     ];
 
     protected $hidden = [
@@ -47,6 +49,11 @@ class User extends Authenticatable implements FilamentUser
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class);
+    }
+
+    public function chartOfAccount(): BelongsTo
+    {
+        return $this->belongsTo(ChartOfAccount::class);
     }
 
     public function canAccessPanel(Panel $panel): bool
@@ -118,5 +125,14 @@ class User extends Authenticatable implements FilamentUser
         }
 
         return strcasecmp(trim($memberEmail), trim($this->email)) === 0;
+    }
+
+    public function profilePhotoPublicUrl(): ?string
+    {
+        if ($this->profile_photo_path === null || $this->profile_photo_path === '') {
+            return null;
+        }
+
+        return asset('storage/'.$this->profile_photo_path);
     }
 }

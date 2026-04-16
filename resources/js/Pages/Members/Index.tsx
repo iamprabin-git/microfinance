@@ -64,7 +64,10 @@ export default function Index({ members }: IndexProps) {
                                 <thead>
                                     <tr className="border-b text-left">
                                         <th className="px-4 py-3 font-medium">
-                                            Member #
+                                            Serial #
+                                        </th>
+                                        <th className="px-4 py-3 font-medium">
+                                            Savings A/c
                                         </th>
                                         <th className="px-4 py-3 font-medium">
                                             Name
@@ -87,6 +90,9 @@ export default function Index({ members }: IndexProps) {
                                         >
                                             <td className="text-muted-foreground px-4 py-3 font-mono text-xs tabular-nums">
                                                 {m.member_number ?? '—'}
+                                            </td>
+                                            <td className="text-muted-foreground px-4 py-3 font-mono text-xs tabular-nums">
+                                                {m.savings_account_number ?? '—'}
                                             </td>
                                             <td className="px-4 py-3 font-medium">
                                                 <div className="flex items-center gap-2">
@@ -132,6 +138,27 @@ export default function Index({ members }: IndexProps) {
                                                         ) : null}
                                                         {canManage ? (
                                                             <>
+                                                                {!m.savings_account_number?.trim() ? (
+                                                                    <Link
+                                                                        href={route(
+                                                                            'members.savings-account.store',
+                                                                            m.id,
+                                                                        )}
+                                                                        method="post"
+                                                                        as="button"
+                                                                        className={cn(
+                                                                            buttonVariants(
+                                                                                {
+                                                                                    variant:
+                                                                                        'secondary',
+                                                                                    size: 'sm',
+                                                                                },
+                                                                            ),
+                                                                        )}
+                                                                    >
+                                                                        Issue savings
+                                                                    </Link>
+                                                                ) : null}
                                                                 <Link
                                                                     href={route(
                                                                         'members.edit',

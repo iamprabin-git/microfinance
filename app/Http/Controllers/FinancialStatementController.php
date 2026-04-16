@@ -6,6 +6,7 @@ use App\Domain\FinancialReport;
 use App\Services\FinancialReporting\FinancialReportsBuilder;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -37,6 +38,10 @@ class FinancialStatementController extends Controller
             : Carbon::now()->copy()->endOfMonth()->endOfDay();
 
         $builder = FinancialReportsBuilder::forUser($request->user());
+        $company = $request->user()?->company;
+        $logoUrl = ($company !== null && filled($company->logo_path))
+            ? Storage::disk('public')->url((string) $company->logo_path)
+            : null;
 
         $payload = match ($report) {
             'trial-balance' => $builder->trialBalance($asOf),
@@ -53,6 +58,16 @@ class FinancialStatementController extends Controller
             'from' => $from->toDateString(),
             'to' => $to->toDateString(),
             'currency' => $builder->currency(),
+            'company' => $company?->only([
+                'name',
+                'address',
+                'contact_phone',
+                'contact_email',
+                'pan_vat_number',
+                'registration_number',
+                'website',
+            ]),
+            'company_logo_url' => $logoUrl,
             'disclaimer' => 'Statement totals use company-approved loans and paid savings only; rejected rows are excluded. The savings register may list pending contributions for tracking (they do not add to totals until approved and paid). Staff edits that change amounts, dates, members, or status send a record back for company approval. This is illustrative management reporting, not audited GAAP statements.',
             'trial_balance' => $report === 'trial-balance' ? $payload : null,
             'balance_sheet' => $report === 'balance-sheet' ? $payload : null,

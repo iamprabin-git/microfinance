@@ -103,6 +103,16 @@ type IndexProps = {
     from: string;
     to: string;
     currency: string;
+    company: {
+        name: string;
+        address: string | null;
+        contact_phone: string | null;
+        contact_email: string | null;
+        pan_vat_number: string | null;
+        registration_number: string | null;
+        website: string | null;
+    } | null;
+    company_logo_url: string | null;
     disclaimer: string;
     trial_balance: TrialBalancePayload | null;
     balance_sheet: BalanceSheetPayload | null;
@@ -139,12 +149,41 @@ function BsAfterAd({ adYmd }: { adYmd: string }) {
     );
 }
 
+function statementTitle(report: ReportKey): string {
+    return (
+        {
+            'trial-balance': 'Trial balance',
+            'profit-and-loss': 'Profit & loss (activity)',
+            'balance-sheet': 'Balance sheet',
+            'cash-flow': 'Cash flow (simplified)',
+            'savings-register': 'Savings register',
+            'loans-register': 'Loan register',
+        } satisfies Record<ReportKey, string>
+    )[report];
+}
+
+function parseMoney(value: string | null | undefined): number {
+    if (!value) return 0;
+    const cleaned = value.replace(/,/g, '').trim();
+    const n = Number(cleaned);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function fmtMoney(n: number): string {
+    return n.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    });
+}
+
 export default function Index({
     report,
     as_of,
     from,
     to,
     currency,
+    company,
+    company_logo_url,
     disclaimer,
     trial_balance,
     balance_sheet,
@@ -157,6 +196,26 @@ export default function Index({
     const asOfBsHint = formatBsFromAdYmd(as_of);
     const fromBsHint = formatBsFromAdYmd(from);
     const toBsHint = formatBsFromAdYmd(to);
+
+    const companyContactBits = [
+        company?.contact_phone?.trim() || null,
+        company?.contact_email?.trim() || null,
+        company?.website?.trim() || null,
+    ].filter(Boolean) as string[];
+
+    const companyIdentityBits = [
+        company?.pan_vat_number?.trim()
+            ? `PAN/VAT: ${company.pan_vat_number.trim()}`
+            : null,
+        company?.registration_number?.trim()
+            ? `Reg: ${company.registration_number.trim()}`
+            : null,
+    ].filter(Boolean) as string[];
+
+    const showAsOf =
+        report === 'trial-balance' || report === 'balance-sheet';
+
+    const printTitle = statementTitle(report);
 
     const tabs: { key: ReportKey; label: string }[] = [
         { key: 'trial-balance', label: 'Trial balance' },
@@ -174,6 +233,478 @@ export default function Index({
             hidePrint={false}
         >
             <Head title="Financial statements" />
+
+            <header className="hidden mb-5 border-b border-border/60 pb-4 print:mb-4 print:block print:pb-3">
+                <div className="grid grid-cols-[3.25rem_1fr] gap-4">
+                    <div className="pt-0.5">
+                        {company_logo_url ? (
+                            <img
+                                src={company_logo_url}
+                                alt="Company logo"
+                                className="size-12 rounded-md border bg-background object-contain p-1 print:size-10"
+                            />
+                        ) : (
+                            <div className="flex size-12 items-center justify-center rounded-md border bg-muted/30 text-base font-semibold tracking-tight print:size-10 print:text-sm">
+                                {(company?.name?.trim()?.[0] ?? 'S').toUpperCase()}
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="min-w-0">
+                        <div className="text-right">
+                            <h1 className="text-xl font-semibold leading-tight print:text-lg">
+                                {company?.name ?? '—'}
+                            </h1>
+
+                            {company?.address?.trim() ? (
+                                <h3 className="text-muted-foreground mt-1 whitespace-pre-line text-sm font-medium leading-snug print:text-xs">
+                                    {company.address.trim()}
+                                </h3>
+                            ) : null}
+
+                            {companyContactBits.length > 0 ? (
+                                <p className="text-muted-foreground mt-1 text-sm print:text-xs">
+                                    {companyContactBits.join(' · ')}
+                                </p>
+                            ) : null}
+                            {companyIdentityBits.length > 0 ? (
+                                <p className="text-muted-foreground mt-1 text-sm print:text-xs">
+                                    {companyIdentityBits.join(' · ')}
+                                </p>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4 text-center">
+                    <h3 className="text-lg font-semibold leading-tight print:text-base">
+                        {printTitle}
+                    </h3>
+                    <p className="text-muted-foreground mt-1 text-sm print:text-xs">
+                        {showAsOf ? (
+                            <>
+                                As of {as_of}
+                                <BsAfterAd adYmd={as_of} />
+                            </>
+                        ) : (
+                            <>
+                                From {from}
+                                <BsAfterAd adYmd={from} /> to {to}
+                                <BsAfterAd adYmd={to} />
+                            </>
+                        )}{' '}
+                        · <span className="font-medium">{currency}</span>
+                    </p>
+                </div>
+            </header>
+
+            {/* Print-only, banking-style statement body (essential figures only). */}
+            <section className="hidden print:block">
+                {trial_balance ? (
+                    <div className="mb-4">
+                        <div className="mb-2 flex items-baseline justify-between gap-4">
+                            <h2 className="text-sm font-semibold tracking-wide text-foreground">
+                                Summary
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                As of {trial_balance.as_of}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="flex justify-between border border-border/60 px-3 py-2">
+                                <span>Total debit</span>
+                                <span className="font-semibold tabular-nums">
+                                    {trial_balance.total_debit}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border border-border/60 px-3 py-2">
+                                <span>Total credit</span>
+                                <span className="font-semibold tabular-nums">
+                                    {trial_balance.total_credit}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 overflow-hidden rounded-md border border-border/60">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/20">
+                                    <tr className="text-left">
+                                        <th className="px-3 py-2 font-semibold">
+                                            Code
+                                        </th>
+                                        <th className="px-3 py-2 font-semibold">
+                                            Account
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Debit
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Credit
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {trial_balance.rows
+                                        .filter(
+                                            (r) => r.debit !== null || r.credit !== null,
+                                        )
+                                        .map((row) => (
+                                            <tr
+                                                key={row.code + row.name}
+                                                className="border-t border-border/40"
+                                            >
+                                                <td className="px-3 py-2 text-muted-foreground">
+                                                    {row.code}
+                                                </td>
+                                                <td className="px-3 py-2">
+                                                    {row.name}
+                                                </td>
+                                                <td className="px-3 py-2 text-right tabular-nums">
+                                                    {row.debit ?? '—'}
+                                                </td>
+                                                <td className="px-3 py-2 text-right tabular-nums">
+                                                    {row.credit ?? '—'}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : null}
+
+                {balance_sheet ? (
+                    <div className="mb-4">
+                        {(() => {
+                            const assetsTotal = balance_sheet.assets.reduce(
+                                (acc, r) => acc + parseMoney(r.amount),
+                                0,
+                            );
+                            const liabTotal = balance_sheet.liabilities.reduce(
+                                (acc, r) => acc + parseMoney(r.amount),
+                                0,
+                            );
+                            const eqTotal = balance_sheet.equity.reduce(
+                                (acc, r) => acc + parseMoney(r.amount),
+                                0,
+                            );
+
+                            return (
+                                <>
+                                    <div className="mb-2 flex items-baseline justify-between gap-4">
+                                        <h2 className="text-sm font-semibold tracking-wide text-foreground">
+                                            Summary
+                                        </h2>
+                                        <p className="text-xs text-muted-foreground">
+                                            As of {balance_sheet.as_of}
+                                        </p>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2 text-sm">
+                                        <div className="flex justify-between border border-border/60 px-3 py-2">
+                                            <span>Assets</span>
+                                            <span className="font-semibold tabular-nums">
+                                                {fmtMoney(assetsTotal)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between border border-border/60 px-3 py-2">
+                                            <span>Liabilities</span>
+                                            <span className="font-semibold tabular-nums">
+                                                {fmtMoney(liabTotal)}
+                                            </span>
+                                        </div>
+                                        <div className="flex justify-between border border-border/60 px-3 py-2">
+                                            <span>Equity</span>
+                                            <span className="font-semibold tabular-nums">
+                                                {fmtMoney(eqTotal)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 grid grid-cols-3 gap-4">
+                                        {[
+                                            {
+                                                title: 'Assets',
+                                                rows: balance_sheet.assets,
+                                            },
+                                            {
+                                                title: 'Liabilities',
+                                                rows: balance_sheet.liabilities,
+                                            },
+                                            {
+                                                title: 'Equity',
+                                                rows: balance_sheet.equity,
+                                            },
+                                        ].map((section) => (
+                                            <div
+                                                key={section.title}
+                                                className="overflow-hidden rounded-md border border-border/60"
+                                            >
+                                                <div className="bg-muted/20 px-3 py-2 text-sm font-semibold">
+                                                    {section.title}
+                                                </div>
+                                                <ul className="text-sm">
+                                                    {section.rows.map((row) => (
+                                                        <li
+                                                            key={row.label}
+                                                            className="flex justify-between gap-3 border-t border-border/40 px-3 py-2"
+                                                        >
+                                                            <span className="min-w-0 truncate">
+                                                                {row.label}
+                                                            </span>
+                                                            <span className="tabular-nums">
+                                                                {row.amount}
+                                                            </span>
+                                                        </li>
+                                                    ))}
+                                                </ul>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
+                            );
+                        })()}
+                    </div>
+                ) : null}
+
+                {profit_and_loss ? (
+                    <div className="mb-4">
+                        <div className="mb-2 flex items-baseline justify-between gap-4">
+                            <h2 className="text-sm font-semibold tracking-wide text-foreground">
+                                Summary
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {profit_and_loss.period_from} – {profit_and_loss.period_to}
+                            </p>
+                        </div>
+                        <div className="flex justify-between border border-border/60 px-3 py-2 text-sm">
+                            <span>Net change</span>
+                            <span className="font-semibold tabular-nums">
+                                {profit_and_loss.net_change}
+                            </span>
+                        </div>
+
+                        <div className="mt-4 overflow-hidden rounded-md border border-border/60">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/20">
+                                    <tr className="text-left">
+                                        <th className="px-3 py-2 font-semibold">
+                                            Line
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Amount
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {profit_and_loss.lines.map((line) => (
+                                        <tr
+                                            key={line.label}
+                                            className="border-t border-border/40"
+                                        >
+                                            <td className="px-3 py-2">{line.label}</td>
+                                            <td className="px-3 py-2 text-right tabular-nums">
+                                                {line.kind === 'outflow' ? '−' : ''}
+                                                {line.amount}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : null}
+
+                {cash_flow ? (
+                    <div className="mb-4">
+                        <div className="mb-2 flex items-baseline justify-between gap-4">
+                            <h2 className="text-sm font-semibold tracking-wide text-foreground">
+                                Summary
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {cash_flow.period_from} – {cash_flow.period_to}
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="flex justify-between border border-border/60 px-3 py-2">
+                                <span>Opening</span>
+                                <span className="font-semibold tabular-nums">
+                                    {cash_flow.opening}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border border-border/60 px-3 py-2">
+                                <span>Closing</span>
+                                <span className="font-semibold tabular-nums">
+                                    {cash_flow.closing}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 overflow-hidden rounded-md border border-border/60">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/20">
+                                    <tr className="text-left">
+                                        <th className="px-3 py-2 font-semibold">
+                                            Line
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Amount
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {cash_flow.lines.map((line) => (
+                                        <tr
+                                            key={line.label}
+                                            className="border-t border-border/40"
+                                        >
+                                            <td className="px-3 py-2">{line.label}</td>
+                                            <td className="px-3 py-2 text-right tabular-nums">
+                                                {line.amount}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : null}
+
+                {savings_register ? (
+                    <div className="mb-4">
+                        <div className="mb-2 flex items-baseline justify-between gap-4">
+                            <h2 className="text-sm font-semibold tracking-wide text-foreground">
+                                Summary
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {savings_register.period_from} – {savings_register.period_to}
+                            </p>
+                        </div>
+                        <div className="flex justify-between border border-border/60 px-3 py-2 text-sm">
+                            <span>Total (approved &amp; paid in range)</span>
+                            <span className="font-semibold tabular-nums">
+                                {savings_register.total}
+                            </span>
+                        </div>
+
+                        <div className="mt-4 overflow-hidden rounded-md border border-border/60">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/20">
+                                    <tr className="text-left">
+                                        <th className="px-3 py-2 font-semibold">
+                                            Member
+                                        </th>
+                                        <th className="px-3 py-2 font-semibold">
+                                            Date
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Amount
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {savings_register.rows.map((row, i) => (
+                                        <tr
+                                            key={`${row.member_name}-${row.paid_at}-${row.period}-${i}`}
+                                            className="border-t border-border/40"
+                                        >
+                                            <td className="px-3 py-2">
+                                                {row.member_name}
+                                            </td>
+                                            <td className="px-3 py-2 text-muted-foreground">
+                                                {row.paid_at ?? row.period ?? '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right tabular-nums">
+                                                {row.amount}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : null}
+
+                {loans_register ? (
+                    <div className="mb-4">
+                        <div className="mb-2 flex items-baseline justify-between gap-4">
+                            <h2 className="text-sm font-semibold tracking-wide text-foreground">
+                                Summary
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                                {loans_register.period_from} – {loans_register.period_to}
+                            </p>
+                        </div>
+                        {(() => {
+                            const totalOutstanding = loans_register.rows.reduce(
+                                (acc, r) => acc + parseMoney(r.outstanding),
+                                0,
+                            );
+                            return (
+                                <div className="grid grid-cols-2 gap-2 text-sm">
+                                    <div className="flex justify-between border border-border/60 px-3 py-2">
+                                        <span>Loans</span>
+                                        <span className="font-semibold tabular-nums">
+                                            {loans_register.rows.length}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between border border-border/60 px-3 py-2">
+                                        <span>Total outstanding</span>
+                                        <span className="font-semibold tabular-nums">
+                                            {fmtMoney(totalOutstanding)}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
+                        <div className="mt-4 overflow-hidden rounded-md border border-border/60">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/20">
+                                    <tr className="text-left">
+                                        <th className="px-3 py-2 font-semibold">
+                                            Member
+                                        </th>
+                                        <th className="px-3 py-2 font-semibold">
+                                            Issued
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Principal
+                                        </th>
+                                        <th className="px-3 py-2 text-right font-semibold">
+                                            Outstanding
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {loans_register.rows.map((row, i) => (
+                                        <tr
+                                            key={`${row.member_name}-${row.issued_at}-${i}`}
+                                            className="border-t border-border/40"
+                                        >
+                                            <td className="px-3 py-2">
+                                                {row.member_name}
+                                            </td>
+                                            <td className="px-3 py-2 text-muted-foreground">
+                                                {row.issued_at ?? '—'}
+                                            </td>
+                                            <td className="px-3 py-2 text-right tabular-nums">
+                                                {row.principal}
+                                            </td>
+                                            <td className="px-3 py-2 text-right tabular-nums font-semibold">
+                                                {row.outstanding}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                ) : null}
+
+                <p className="mt-6 text-center text-[10px] text-muted-foreground">
+                    Generated by {company?.name ?? '—'} · {printTitle}
+                </p>
+            </section>
 
             <p className="text-muted-foreground mb-4 max-w-2xl text-sm print:hidden">
                 Management views built from approved loans, repayments, and paid
@@ -265,10 +796,12 @@ export default function Index({
                 </button>
             </form>
 
-            <p className="text-muted-foreground mb-6 text-xs">{disclaimer}</p>
+            <p className="text-muted-foreground mb-6 text-xs print:hidden">
+                {disclaimer}
+            </p>
 
             {trial_balance ? (
-                <Card className="mb-6">
+                <Card className="mb-6 print:hidden">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <HeadingIcon icon={FileSpreadsheet} size="sm" />
@@ -337,7 +870,7 @@ export default function Index({
             ) : null}
 
             {balance_sheet ? (
-                <Card className="mb-6">
+                <Card className="mb-6 print:hidden">
                     <CardHeader>
                         <CardTitle>Balance sheet</CardTitle>
                         <CardDescription>
@@ -401,7 +934,7 @@ export default function Index({
             ) : null}
 
             {profit_and_loss ? (
-                <Card className="mb-6">
+                <Card className="mb-6 print:hidden">
                     <CardHeader>
                         <CardTitle>Profit &amp; loss (activity)</CardTitle>
                         <CardDescription>
@@ -444,7 +977,7 @@ export default function Index({
             ) : null}
 
             {savings_register ? (
-                <Card className="mb-6">
+                <Card className="mb-6 print:hidden">
                     <CardHeader>
                         <CardTitle>Savings register (individual)</CardTitle>
                         <CardDescription>
@@ -556,7 +1089,7 @@ export default function Index({
             ) : null}
 
             {loans_register ? (
-                <Card className="mb-6">
+                <Card className="mb-6 print:hidden">
                     <CardHeader>
                         <CardTitle>Loan register (individual)</CardTitle>
                         <CardDescription>
@@ -653,7 +1186,7 @@ export default function Index({
             ) : null}
 
             {cash_flow ? (
-                <Card>
+                <Card className="print:hidden">
                     <CardHeader>
                         <CardTitle>Cash flow (simplified)</CardTitle>
                         <CardDescription>

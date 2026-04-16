@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Pages\AdminDashboard;
+use App\Filament\Widgets\AdminAccountCard;
 use App\Filament\Widgets\AdminWelcomePanel;
 use App\Filament\Widgets\PlatformOverviewStats;
 use App\Http\Middleware\FilamentAuthenticate;
@@ -14,7 +15,6 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Enums\MaxWidth;
-use Filament\Widgets;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -56,7 +56,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AdminWelcomePanel::class,
                 PlatformOverviewStats::class,
-                Widgets\AccountWidget::class,
+                AdminAccountCard::class,
             ])
             ->middleware([
                 EncryptCookies::class,

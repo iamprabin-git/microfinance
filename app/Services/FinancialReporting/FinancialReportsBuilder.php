@@ -3,16 +3,22 @@
 namespace App\Services\FinancialReporting;
 
 use App\Enums\CompanyApprovalStatus;
+use App\Enums\ChartOfAccountType;
 use App\Enums\DepositStatus;
+use App\Models\ChartOfAccount;
 use App\Models\Company;
 use App\Models\FinancialTransaction;
+use App\Models\JournalLine;
 use App\Models\Loan;
 use App\Models\LoanRepayment;
 use App\Models\Member;
 use App\Models\MonthlyDeposit;
+use App\Models\SavingsTransaction;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Schema;
 
 final class FinancialReportsBuilder
 {
@@ -229,58 +235,93 @@ final class FinancialReportsBuilder
         $loansOutstanding = $this->loansOutstanding($asOfDate);
         $savingsPayable = $this->cumulativeSavingsPaid($asOfDate);
         $cashPosition = $this->cashPositionThrough($asOfDate);
+        $journalSums = $this->journalSumsThroughByCode($asOfDate);
 
-        $rows = [];
-        $rows[] = [
-            'code' => '1100',
-            'name' => 'Loans receivable (net of repayments)',
-            'debit' => $this->fmt($loansOutstanding),
-            'credit' => null,
-        ];
+        $required = collect([
+            ['code' => '1010', 'type' => ChartOfAccountType::Asset, 'name' => 'Cash and bank (net of disbursements)'],
+            ['code' => '1100', 'type' => ChartOfAccountType::Asset, 'name' => 'Loans receivable (net of repayments)'],
+            ['code' => '2015', 'type' => ChartOfAccountType::Liability, 'name' => 'Net funding from members (cash deficit)'],
+            ['code' => '2100', 'type' => ChartOfAccountType::Liability, 'name' => 'Member savings deposits held (paid contributions)'],
+            ['code' => '3900', 'type' => ChartOfAccountType::Capital, 'name' => "Members' equity / accumulated surplus (balancing)"],
+            ['code' => '3910', 'type' => ChartOfAccountType::Capital, 'name' => "Members' equity / accumulated deficit (balancing)"],
+        ]);
 
-        if ($cashPosition >= 0) {
-            $rows[] = [
-                'code' => '1010',
-                'name' => 'Cash and bank (net of disbursements)',
-                'debit' => $this->fmt($cashPosition),
-                'credit' => null,
-            ];
-        } else {
-            $rows[] = [
-                'code' => '2015',
-                'name' => 'Net funding from members (cash deficit)',
-                'debit' => null,
-                'credit' => $this->fmt(abs($cashPosition)),
-            ];
-        }
+        $accounts = $this->activeChartAccounts()
+            ->map(fn (ChartOfAccount $a) => [
+                'code' => $a->code,
+                'name' => $a->name,
+                'type' => $a->type,
+            ]);
 
-        $rows[] = [
-            'code' => '2100',
-            'name' => 'Member savings deposits held (paid contributions)',
-            'debit' => null,
-            'credit' => $this->fmt($savingsPayable),
-        ];
+        $missing = $required
+            ->reject(fn (array $r) => $accounts->contains(fn (array $a) => $a['code'] === $r['code']))
+            ->map(fn (array $r) => [
+                'code' => $r['code'],
+                'name' => $r['name'],
+                'type' => $r['type'],
+            ]);
 
-        $totalDebit = $loansOutstanding + max(0, $cashPosition);
-        $totalCredit = $savingsPayable + max(0, -$cashPosition);
+        $accounts = $accounts
+            ->concat($missing)
+            ->sortBy('code', SORT_NATURAL)
+            ->values();
+
+        $journalTotalDebit = (float) collect($journalSums)->sum('debit');
+        $journalTotalCredit = (float) collect($journalSums)->sum('credit');
+
+        $totalDebit = $loansOutstanding + max(0, $cashPosition) + $journalTotalDebit;
+        $totalCredit = $savingsPayable + max(0, -$cashPosition) + $journalTotalCredit;
         $plug = $totalDebit - $totalCredit;
+
         if ($plug > 0) {
-            $rows[] = [
-                'code' => '3900',
-                'name' => "Members' equity / accumulated surplus (balancing)",
-                'debit' => null,
-                'credit' => $this->fmt($plug),
-            ];
             $totalCredit += $plug;
         } elseif ($plug < 0) {
-            $rows[] = [
-                'code' => '3910',
-                'name' => "Members' equity / accumulated deficit (balancing)",
-                'debit' => $this->fmt(abs($plug)),
-                'credit' => null,
-            ];
             $totalDebit += abs($plug);
         }
+
+        $rows = $accounts->map(function (array $account) use ($loansOutstanding, $savingsPayable, $cashPosition, $plug, $journalSums): array {
+            $code = (string) $account['code'];
+            $name = (string) $account['name'];
+
+            $debit = null;
+            $credit = null;
+
+            if ($code === '1100' && $loansOutstanding > 0) {
+                $debit = $this->fmt($loansOutstanding);
+            }
+            if ($code === '1010' && $cashPosition > 0) {
+                $debit = $this->fmt($cashPosition);
+            }
+            if ($code === '2015' && $cashPosition < 0) {
+                $credit = $this->fmt(abs($cashPosition));
+            }
+            if ($code === '2100' && $savingsPayable > 0) {
+                $credit = $this->fmt($savingsPayable);
+            }
+            if ($code === '3900' && $plug > 0) {
+                $credit = $this->fmt($plug);
+            }
+            if ($code === '3910' && $plug < 0) {
+                $debit = $this->fmt(abs($plug));
+            }
+
+            $j = $journalSums[$code] ?? null;
+            if ($j !== null) {
+                $d = (float) ($debit ?? 0);
+                $c = (float) ($credit ?? 0);
+                $d += (float) $j['debit'];
+                $c += (float) $j['credit'];
+                $debit = $d > 0.000001 ? $this->fmt($d) : null;
+                $credit = $c > 0.000001 ? $this->fmt($c) : null;
+            }
+
+            return [
+                'code' => $code,
+                'name' => $name,
+                'debit' => $debit,
+                'credit' => $credit,
+            ];
+        })->all();
 
         return [
             'rows' => $rows,
@@ -302,24 +343,81 @@ final class FinancialReportsBuilder
         $savingsPayable = $this->cumulativeSavingsPaid($asOfDate);
         $cashPosition = $this->cashPositionThrough($asOfDate);
         $equity = $loansOutstanding + $cashPosition - $savingsPayable;
+        $journalNet = $this->journalNetThroughByCodeAndType($asOfDate);
 
-        $assets = [
-            ['label' => 'Loans receivable (net)', 'amount' => $this->fmt($loansOutstanding)],
+        $required = collect([
+            ['code' => '1010', 'type' => ChartOfAccountType::Asset, 'name' => 'Cash and bank (net of disbursements)'],
+            ['code' => '1100', 'type' => ChartOfAccountType::Asset, 'name' => 'Loans receivable (net of repayments)'],
+            ['code' => '2015', 'type' => ChartOfAccountType::Liability, 'name' => 'Net funding from members (cash deficit)'],
+            ['code' => '2100', 'type' => ChartOfAccountType::Liability, 'name' => 'Member savings deposits held (paid contributions)'],
+            ['code' => '3900', 'type' => ChartOfAccountType::Capital, 'name' => "Members' equity / accumulated surplus (balancing)"],
+            ['code' => '3910', 'type' => ChartOfAccountType::Capital, 'name' => "Members' equity / accumulated deficit (balancing)"],
+        ]);
+
+        $accounts = $this->activeChartAccounts()
+            ->map(fn (ChartOfAccount $a) => [
+                'code' => $a->code,
+                'name' => $a->name,
+                'type' => $a->type,
+            ]);
+
+        $missing = $required
+            ->reject(fn (array $r) => $accounts->contains(fn (array $a) => $a['code'] === $r['code']))
+            ->map(fn (array $r) => [
+                'code' => $r['code'],
+                'name' => $r['name'],
+                'type' => $r['type'],
+            ]);
+
+        $accounts = $accounts
+            ->concat($missing)
+            ->sortBy('code', SORT_NATURAL)
+            ->values();
+
+        $balances = [
+            '1100' => $loansOutstanding,
+            '1010' => max(0.0, $cashPosition),
+            '2100' => $savingsPayable,
+            '2015' => max(0.0, -$cashPosition),
+            '3900' => max(0.0, $equity),
+            '3910' => max(0.0, -$equity),
         ];
-        if ($cashPosition >= 0) {
-            $assets[] = ['label' => 'Cash and bank (net)', 'amount' => $this->fmt($cashPosition)];
+
+        foreach ($journalNet as $code => $net) {
+            if (! array_key_exists($code, $balances)) {
+                continue;
+            }
+            $balances[$code] = max(0.0, (float) $balances[$code] + (float) $net);
         }
 
-        $liabilities = [
-            ['label' => 'Member savings payable', 'amount' => $this->fmt($savingsPayable)],
-        ];
-        if ($cashPosition < 0) {
-            $liabilities[] = ['label' => 'Net member funding (cash overdraft)', 'amount' => $this->fmt(abs($cashPosition))];
-        }
+        $formatLabel = static fn (array $a): string => trim($a['code'].' — '.$a['name']);
 
-        $equityRows = [
-            ['label' => "Members' equity (net assets)", 'amount' => $this->fmt($equity)],
-        ];
+        $assets = $accounts
+            ->filter(fn (array $a) => $a['type'] === ChartOfAccountType::Asset)
+            ->map(fn (array $a) => [
+                'label' => $formatLabel($a),
+                'amount' => $this->fmt((float) ($balances[$a['code']] ?? 0.0)),
+            ])
+            ->values()
+            ->all();
+
+        $liabilities = $accounts
+            ->filter(fn (array $a) => $a['type'] === ChartOfAccountType::Liability)
+            ->map(fn (array $a) => [
+                'label' => $formatLabel($a),
+                'amount' => $this->fmt((float) ($balances[$a['code']] ?? 0.0)),
+            ])
+            ->values()
+            ->all();
+
+        $equityRows = $accounts
+            ->filter(fn (array $a) => $a['type'] === ChartOfAccountType::Capital)
+            ->map(fn (array $a) => [
+                'label' => $formatLabel($a),
+                'amount' => $this->fmt((float) ($balances[$a['code']] ?? 0.0)),
+            ])
+            ->values()
+            ->all();
 
         return [
             'assets' => $assets,
@@ -341,6 +439,7 @@ final class FinancialReportsBuilder
         $savings = $this->savingsPaidInRange($fromDay, $toDay);
         $disbursed = $this->loansDisbursedInRange($fromDay, $toDay);
         [$otherIncome, $otherExpense] = $this->financialTransactionTotals($fromDay, $toDay);
+        [$journalIncome, $journalExpense] = $this->journalProfitLossTotals($fromDay, $toDay);
 
         $lines = [
             [
@@ -361,21 +460,37 @@ final class FinancialReportsBuilder
         ];
 
         if ($otherIncome > 0) {
+            $incomeLabel = $this->firstChartAccountLabel(ChartOfAccountType::Income) ?? 'Other income (recorded transactions)';
             $lines[] = [
-                'label' => 'Other income (recorded transactions)',
+                'label' => $incomeLabel,
                 'amount' => $this->fmt($otherIncome),
                 'kind' => 'income',
             ];
         }
         if ($otherExpense > 0) {
+            $expenseLabel = $this->firstChartAccountLabel(ChartOfAccountType::Expense) ?? 'Operating expenses (recorded transactions)';
             $lines[] = [
-                'label' => 'Operating expenses (recorded transactions)',
+                'label' => $expenseLabel,
                 'amount' => $this->fmt($otherExpense),
                 'kind' => 'expense',
             ];
         }
+        if ($journalIncome > 0.0001) {
+            $lines[] = [
+                'label' => 'Journal income adjustments',
+                'amount' => $this->fmt($journalIncome),
+                'kind' => 'income',
+            ];
+        }
+        if ($journalExpense > 0.0001) {
+            $lines[] = [
+                'label' => 'Journal expense adjustments',
+                'amount' => $this->fmt($journalExpense),
+                'kind' => 'expense',
+            ];
+        }
 
-        $net = $repayments + $savings - $disbursed + $otherIncome - $otherExpense;
+        $net = $repayments + $savings - $disbursed + $otherIncome - $otherExpense + $journalIncome - $journalExpense;
 
         return [
             'lines' => $lines,
@@ -396,14 +511,16 @@ final class FinancialReportsBuilder
 
         $opening = $this->cashPositionThrough($dayBefore);
         $repayments = $this->repaymentsInRange($fromDay, $toDay);
-        $savings = $this->savingsPaidInRange($fromDay, $toDay);
+        $savingsNet = $this->savingsPaidInRange($fromDay, $toDay);
+        $withdrawals = $this->savingsWithdrawnInRange($fromDay, $toDay);
         $disbursed = $this->loansDisbursedInRange($fromDay, $toDay);
-        $netPeriod = $repayments + $savings - $disbursed;
+        $netPeriod = $repayments + $savingsNet - $withdrawals - $disbursed;
         $closing = $opening + $netPeriod;
 
         $lines = [
             ['label' => 'Loan repayments received', 'amount' => $this->fmt($repayments)],
-            ['label' => 'Savings contributions received', 'amount' => $this->fmt($savings)],
+            ['label' => 'Savings contributions received', 'amount' => $this->fmt($savingsNet)],
+            ['label' => 'Savings withdrawals paid', 'amount' => $this->fmt(-$withdrawals)],
             ['label' => 'Loans disbursed', 'amount' => $this->fmt(-$disbursed)],
             ['label' => 'Net change in cash', 'amount' => $this->fmt($netPeriod)],
         ];
@@ -452,7 +569,7 @@ final class FinancialReportsBuilder
 
         $deposits = MonthlyDeposit::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', '!=', CompanyApprovalStatus::Rejected)
+            ->where('company_approval_status', '!=', CompanyApprovalStatus::Rejected->value)
             ->where(function (Builder $q) use ($fromStr, $toStr, $pendingPeriodFrom, $pendingPeriodTo): void {
                 $q->where(function (Builder $q2) use ($fromStr, $toStr): void {
                     $q2->where('status', DepositStatus::Paid)
@@ -539,7 +656,7 @@ final class FinancialReportsBuilder
 
         $loans = Loan::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->whereDate('issued_at', '<=', $toStr)
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->with([
@@ -596,7 +713,7 @@ final class FinancialReportsBuilder
 
         $loans = Loan::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->whereDate('issued_at', '<=', $asOfStr)
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->with(['repayments' => fn ($q) => $q->whereDate('paid_at', '<=', $asOfStr)])
@@ -613,14 +730,38 @@ final class FinancialReportsBuilder
     {
         $asOfStr = $asOfEnd->toDateString();
 
-        return (float) MonthlyDeposit::query()
+        $deposits = (float) MonthlyDeposit::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->where('status', DepositStatus::Paid)
             ->whereNotNull('paid_at')
             ->whereDate('paid_at', '<=', $asOfStr)
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->sum('amount');
+
+        $txDeposits = 0.0;
+        $withdrawals = 0.0;
+        if (Schema::hasTable('savings_transactions')) {
+            $txDeposits = (float) SavingsTransaction::query()
+                ->forCompany($this->companyId)
+                ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+                ->where('status', 'paid')
+                ->where('type', SavingsTransaction::TYPE_DEPOSIT)
+                ->whereDate('occurred_at', '<=', $asOfStr)
+                ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+                ->sum('amount');
+
+            $withdrawals = (float) SavingsTransaction::query()
+                ->forCompany($this->companyId)
+                ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+                ->where('status', 'paid')
+                ->where('type', SavingsTransaction::TYPE_WITHDRAW)
+                ->whereDate('occurred_at', '<=', $asOfStr)
+                ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+                ->sum('amount');
+        }
+
+        return max(0.0, $deposits + $txDeposits - $withdrawals);
     }
 
     private function cashPositionThrough(Carbon $asOfEnd): float
@@ -630,7 +771,7 @@ final class FinancialReportsBuilder
         $repayments = (float) LoanRepayment::query()
             ->whereHas('loan', function (Builder $q) use ($asOfStr): void {
                 $q->forCompany($this->companyId)
-                    ->where('company_approval_status', CompanyApprovalStatus::Approved)
+                    ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
                     ->whereDate('issued_at', '<=', $asOfStr);
                 $this->applyMemberScope($q);
             })
@@ -639,21 +780,43 @@ final class FinancialReportsBuilder
 
         $savings = (float) MonthlyDeposit::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->where('status', DepositStatus::Paid)
             ->whereNotNull('paid_at')
             ->whereDate('paid_at', '<=', $asOfStr)
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->sum('amount');
 
+        $txDeposits = 0.0;
+        $withdrawals = 0.0;
+        if (Schema::hasTable('savings_transactions')) {
+            $txDeposits = (float) SavingsTransaction::query()
+                ->forCompany($this->companyId)
+                ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+                ->where('status', 'paid')
+                ->where('type', SavingsTransaction::TYPE_DEPOSIT)
+                ->whereDate('occurred_at', '<=', $asOfStr)
+                ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+                ->sum('amount');
+
+            $withdrawals = (float) SavingsTransaction::query()
+                ->forCompany($this->companyId)
+                ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+                ->where('status', 'paid')
+                ->where('type', SavingsTransaction::TYPE_WITHDRAW)
+                ->whereDate('occurred_at', '<=', $asOfStr)
+                ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+                ->sum('amount');
+        }
+
         $disbursed = (float) Loan::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->whereDate('issued_at', '<=', $asOfStr)
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->sum('principal');
 
-        return $repayments + $savings - $disbursed;
+        return $repayments + $savings + $txDeposits - $withdrawals - $disbursed;
     }
 
     private function repaymentsInRange(Carbon $from, Carbon $to): float
@@ -661,7 +824,7 @@ final class FinancialReportsBuilder
         return (float) LoanRepayment::query()
             ->whereHas('loan', function (Builder $q): void {
                 $q->forCompany($this->companyId)
-                    ->where('company_approval_status', CompanyApprovalStatus::Approved);
+                    ->where('company_approval_status', CompanyApprovalStatus::Approved->value);
                 $this->applyMemberScope($q);
             })
             ->whereBetween('paid_at', [$from->toDateString(), $to->toDateString()])
@@ -670,21 +833,45 @@ final class FinancialReportsBuilder
 
     private function savingsPaidInRange(Carbon $from, Carbon $to): float
     {
-        return (float) MonthlyDeposit::query()
+        $deposits = (float) MonthlyDeposit::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->where('status', DepositStatus::Paid)
             ->whereNotNull('paid_at')
             ->whereBetween('paid_at', [$from->toDateString(), $to->toDateString()])
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->sum('amount');
+
+        $txDeposits = 0.0;
+        $withdrawals = 0.0;
+        if (Schema::hasTable('savings_transactions')) {
+            $txDeposits = (float) SavingsTransaction::query()
+                ->forCompany($this->companyId)
+                ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+                ->where('status', 'paid')
+                ->where('type', SavingsTransaction::TYPE_DEPOSIT)
+                ->whereBetween('occurred_at', [$from->toDateString(), $to->toDateString()])
+                ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+                ->sum('amount');
+
+            $withdrawals = (float) SavingsTransaction::query()
+                ->forCompany($this->companyId)
+                ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+                ->where('status', 'paid')
+                ->where('type', SavingsTransaction::TYPE_WITHDRAW)
+                ->whereBetween('occurred_at', [$from->toDateString(), $to->toDateString()])
+                ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+                ->sum('amount');
+        }
+
+        return max(0.0, $deposits + $txDeposits - $withdrawals);
     }
 
     private function loansDisbursedInRange(Carbon $from, Carbon $to): float
     {
         return (float) Loan::query()
             ->forCompany($this->companyId)
-            ->where('company_approval_status', CompanyApprovalStatus::Approved)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
             ->whereBetween('issued_at', [$from->toDateString(), $to->toDateString()])
             ->tap(fn (Builder $q) => $this->applyMemberScope($q))
             ->sum('principal');
@@ -730,5 +917,173 @@ final class FinancialReportsBuilder
     private function fmt(float $value): string
     {
         return number_format($value, 2, '.', '');
+    }
+
+    /**
+     * @return Collection<int, ChartOfAccount>
+     */
+    private function activeChartAccounts(): Collection
+    {
+        return ChartOfAccount::query()
+            ->forCompany($this->companyId)
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->orderBy('name')
+            ->get(['id', 'type', 'code', 'name']);
+    }
+
+    private function firstChartAccountLabel(ChartOfAccountType $type): ?string
+    {
+        /** @var ChartOfAccount|null $account */
+        $account = $this->activeChartAccounts()
+            ->first(fn (ChartOfAccount $a) => $a->type === $type);
+
+        if ($account === null) {
+            return null;
+        }
+
+        return trim($account->code.' — '.$account->name);
+    }
+
+    /**
+     * @return array<string, array{debit: float, credit: float}>
+     */
+    private function journalSumsThroughByCode(Carbon $asOfEnd): array
+    {
+        if (! class_exists(JournalLine::class) || ! Schema::hasTable('journal_lines') || ! Schema::hasTable('journal_entries')) {
+            return [];
+        }
+
+        $asOfStr = $asOfEnd->toDateString();
+
+        $rows = JournalLine::query()
+            ->selectRaw('chart_of_accounts.code as code, SUM(journal_lines.debit) as debit_sum, SUM(journal_lines.credit) as credit_sum')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->join('chart_of_accounts', 'chart_of_accounts.id', '=', 'journal_lines.chart_of_account_id')
+            ->where('journal_entries.company_id', $this->companyId)
+            ->whereDate('journal_entries.occurred_at', '<=', $asOfStr)
+            ->groupBy('chart_of_accounts.code')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $code = (string) ($r->code ?? '');
+            if ($code === '') {
+                continue;
+            }
+            $out[$code] = [
+                'debit' => (float) ($r->debit_sum ?? 0),
+                'credit' => (float) ($r->credit_sum ?? 0),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Net balance adjustments per balance-sheet code. For assets: debit-credit. For liabilities/capital: credit-debit.
+     *
+     * @return array<string, float>
+     */
+    private function journalNetThroughByCodeAndType(Carbon $asOfEnd): array
+    {
+        if (! class_exists(JournalLine::class) || ! Schema::hasTable('journal_lines') || ! Schema::hasTable('journal_entries')) {
+            return [];
+        }
+
+        $asOfStr = $asOfEnd->toDateString();
+
+        $rows = JournalLine::query()
+            ->selectRaw('chart_of_accounts.code as code, chart_of_accounts.type as type, SUM(journal_lines.debit) as debit_sum, SUM(journal_lines.credit) as credit_sum')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->join('chart_of_accounts', 'chart_of_accounts.id', '=', 'journal_lines.chart_of_account_id')
+            ->where('journal_entries.company_id', $this->companyId)
+            ->whereDate('journal_entries.occurred_at', '<=', $asOfStr)
+            ->whereIn('chart_of_accounts.type', [
+                ChartOfAccountType::Asset->value,
+                ChartOfAccountType::Liability->value,
+                ChartOfAccountType::Capital->value,
+            ])
+            ->groupBy('chart_of_accounts.code', 'chart_of_accounts.type')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $r) {
+            $code = (string) ($r->code ?? '');
+            $type = (string) ($r->type ?? '');
+            if ($code === '' || $type === '') {
+                continue;
+            }
+            $debit = (float) ($r->debit_sum ?? 0);
+            $credit = (float) ($r->credit_sum ?? 0);
+            $net = $type === ChartOfAccountType::Asset->value
+                ? ($debit - $credit)
+                : ($credit - $debit);
+            if (abs($net) > 0.000001) {
+                $out[$code] = ($out[$code] ?? 0.0) + $net;
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array{0: float, 1: float} income, expense
+     */
+    private function journalProfitLossTotals(Carbon $from, Carbon $to): array
+    {
+        if (! class_exists(JournalLine::class) || ! Schema::hasTable('journal_lines') || ! Schema::hasTable('journal_entries')) {
+            return [0.0, 0.0];
+        }
+        if ($this->memberIds !== null) {
+            return [0.0, 0.0];
+        }
+
+        $fromStr = $from->toDateString();
+        $toStr = $to->toDateString();
+
+        $rows = JournalLine::query()
+            ->selectRaw('chart_of_accounts.type as type, SUM(journal_lines.debit) as debit_sum, SUM(journal_lines.credit) as credit_sum')
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->join('chart_of_accounts', 'chart_of_accounts.id', '=', 'journal_lines.chart_of_account_id')
+            ->where('journal_entries.company_id', $this->companyId)
+            ->whereBetween('journal_entries.occurred_at', [$fromStr, $toStr])
+            ->whereIn('chart_of_accounts.type', [
+                ChartOfAccountType::Income->value,
+                ChartOfAccountType::Expense->value,
+            ])
+            ->groupBy('chart_of_accounts.type')
+            ->get();
+
+        $income = 0.0;
+        $expense = 0.0;
+        foreach ($rows as $r) {
+            $type = (string) ($r->type ?? '');
+            $debit = (float) ($r->debit_sum ?? 0);
+            $credit = (float) ($r->credit_sum ?? 0);
+            if ($type === ChartOfAccountType::Income->value) {
+                $income += max(0.0, $credit - $debit);
+            } elseif ($type === ChartOfAccountType::Expense->value) {
+                $expense += max(0.0, $debit - $credit);
+            }
+        }
+
+        return [$income, $expense];
+    }
+
+    private function savingsWithdrawnInRange(Carbon $from, Carbon $to): float
+    {
+        if (! Schema::hasTable('savings_transactions')) {
+            return 0.0;
+        }
+
+        return (float) SavingsTransaction::query()
+            ->forCompany($this->companyId)
+            ->where('company_approval_status', CompanyApprovalStatus::Approved->value)
+            ->where('status', 'paid')
+            ->where('type', SavingsTransaction::TYPE_WITHDRAW)
+            ->whereBetween('occurred_at', [$from->toDateString(), $to->toDateString()])
+            ->tap(fn (Builder $q) => $this->applyMemberScope($q))
+            ->sum('amount');
     }
 }

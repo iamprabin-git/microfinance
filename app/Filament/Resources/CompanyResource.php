@@ -49,6 +49,34 @@ class CompanyResource extends Resource
                             ->default(fn (): string => (string) config('app.default_currency'))
                             ->required()
                             ->helperText('Used for loans, savings, and financial statements.'),
+                        Forms\Components\Textarea::make('address')
+                            ->rows(3)
+                            ->maxLength(2000),
+                        Forms\Components\TextInput::make('contact_phone')
+                            ->label('Phone')
+                            ->maxLength(64),
+                        Forms\Components\TextInput::make('contact_email')
+                            ->label('Email')
+                            ->email()
+                            ->maxLength(255),
+                        Forms\Components\TextInput::make('pan_vat_number')
+                            ->label('PAN / VAT number')
+                            ->maxLength(64),
+                        Forms\Components\TextInput::make('registration_number')
+                            ->label('Registration no.')
+                            ->maxLength(64),
+                        Forms\Components\TextInput::make('website')
+                            ->label('Website')
+                            ->url()
+                            ->maxLength(255),
+                        Forms\Components\FileUpload::make('logo_path')
+                            ->label('Logo')
+                            ->disk('public')
+                            ->directory('company-logos')
+                            ->image()
+                            ->imageEditor()
+                            ->maxSize(2048)
+                            ->helperText('Shown in statement headers and exports.'),
                         Forms\Components\Textarea::make('notes')
                             ->columnSpanFull(),
                     ])->columns(2),

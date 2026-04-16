@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Link, useForm, usePage } from '@inertiajs/react';
+import { useMemo } from 'react';
 import type { FormEventHandler } from 'react';
 
 type UpdateProfileInformationFormProps = {
@@ -14,16 +15,26 @@ export default function UpdateProfileInformationForm({
     status,
 }: UpdateProfileInformationFormProps) {
     const user = usePage().props.auth.user;
+    const photoUrl = user?.profile_photo_url ?? null;
+    const initials = useMemo(() => {
+        const name = (user?.name ?? '').trim();
+        if (!name) return 'U';
+        const parts = name.split(/\s+/).filter(Boolean);
+        const a = parts[0]?.[0] ?? 'U';
+        const b = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? '' : '';
+        return (a + b).toUpperCase();
+    }, [user?.name]);
 
     const { data, setData, patch, errors, processing, recentlySuccessful } =
         useForm({
             name: user?.name ?? '',
             email: user?.email ?? '',
+            profile_image: null as File | null,
         });
 
     const submit: FormEventHandler = (e) => {
         e.preventDefault();
-        patch(route('profile.update'));
+        patch(route('profile.update'), { forceFormData: true });
     };
 
     if (!user) {
@@ -32,6 +43,47 @@ export default function UpdateProfileInformationForm({
 
     return (
         <form onSubmit={submit} className="space-y-6">
+            <div className="grid gap-2">
+                <Label>Profile photo</Label>
+                <div className="flex flex-wrap items-center gap-4">
+                    <div className="relative size-16 overflow-hidden rounded-full border border-border/60 bg-muted/40">
+                        {photoUrl ? (
+                            <img
+                                src={photoUrl}
+                                alt={user.name}
+                                className="h-full w-full object-cover"
+                            />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center text-sm font-semibold text-foreground/80">
+                                {initials}
+                            </div>
+                        )}
+                    </div>
+                    <div className="min-w-[14rem] flex-1 space-y-1.5">
+                        <Input
+                            id="profile_image"
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) =>
+                                setData(
+                                    'profile_image',
+                                    e.target.files?.[0] ?? null,
+                                )
+                            }
+                            aria-invalid={errors.profile_image ? 'true' : 'false'}
+                        />
+                        <p className="text-muted-foreground text-xs">
+                            PNG/JPG up to 4MB.
+                        </p>
+                        {errors.profile_image ? (
+                            <p className="text-destructive text-sm">
+                                {errors.profile_image}
+                            </p>
+                        ) : null}
+                    </div>
+                </div>
+            </div>
+
             <div className="grid gap-2">
                 <Label htmlFor="name">Name</Label>
                 <Input

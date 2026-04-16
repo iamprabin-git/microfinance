@@ -28,6 +28,7 @@ type RepaymentRow = {
 type LoanEdit = {
     id: number;
     member_id: number;
+    loan_account_number: string | null;
     principal: string;
     issued_at: string;
     due_date: string | null;
@@ -53,6 +54,7 @@ export default function Edit({
 }: EditProps) {
     const { data, setData, put, processing, errors } = useForm({
         member_id: loan.member_id,
+        loan_account_number: loan.loan_account_number ?? '',
         principal: loan.principal,
         issued_at: loan.issued_at,
         due_date: loan.due_date ?? '',
@@ -193,6 +195,27 @@ export default function Edit({
                                 ) : null}
                             </div>
                             <div className="grid gap-2">
+                                <Label htmlFor="loan_account_number">
+                                    Loan account number
+                                </Label>
+                                <Input
+                                    id="loan_account_number"
+                                    value={data.loan_account_number}
+                                    onChange={(e) =>
+                                        setData(
+                                            'loan_account_number',
+                                            e.target.value,
+                                        )
+                                    }
+                                    placeholder="e.g. LN-000045"
+                                />
+                                {errors.loan_account_number ? (
+                                    <p className="text-destructive text-sm">
+                                        {errors.loan_account_number}
+                                    </p>
+                                ) : null}
+                            </div>
+                            <div className="grid gap-2">
                                 <Label htmlFor="principal">
                                     Principal ({loan.currency})
                                 </Label>
@@ -272,6 +295,12 @@ export default function Edit({
                             <Button type="submit" disabled={processing}>
                                 {processing ? 'Saving…' : 'Save loan'}
                             </Button>
+                            <Link
+                                href={route('loans.statement', loan.id)}
+                                className="text-sm underline-offset-4 hover:underline"
+                            >
+                                Statement
+                            </Link>
                             <Link
                                 href={route('loans.index')}
                                 className="text-muted-foreground text-sm underline-offset-4 hover:underline"

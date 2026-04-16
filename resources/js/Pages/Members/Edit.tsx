@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -11,13 +11,15 @@ import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/Layouts/AppLayout';
-import { Head, Link, useForm } from '@inertiajs/react';
+import { cn } from '@/lib/utils';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import { UserPen } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
 type MemberEdit = {
     id: number;
     member_number: number | null;
+    savings_account_number: string | null;
     name: string;
     email: string | null;
     phone: string | null;
@@ -30,7 +32,13 @@ type EditProps = {
 };
 
 export default function Edit({ member }: EditProps) {
+    const { companyPortal } = usePage().props as {
+        companyPortal?: { canManage?: boolean };
+    };
+    const canManage = companyPortal?.canManage ?? false;
+
     const { data, setData, put, processing, errors } = useForm({
+        savings_account_number: member.savings_account_number ?? '',
         name: member.name,
         email: member.email ?? '',
         phone: member.phone ?? '',
@@ -58,14 +66,76 @@ export default function Edit({ member }: EditProps) {
                 <form onSubmit={submit}>
                     <CardContent className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label>Member #</Label>
+                            <Label>Serial number (member #)</Label>
                             <p className="bg-muted/50 font-mono text-muted-foreground rounded-lg border px-3 py-2 text-sm tabular-nums">
                                 {member.member_number ?? '—'}
                             </p>
                             <p className="text-muted-foreground text-xs">
-                                Auto-incrementing number for this organization (1,
-                                2, 3…).
+                                Assigned when the member is first saved. Required
+                                before opening a savings account.
                             </p>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="savings_account_number">
+                                Savings account number
+                            </Label>
+                            {!member.savings_account_number?.trim() ? (
+                                <div className="flex flex-col gap-2">
+                                    <p className="text-muted-foreground text-sm">
+                                        Issue a savings account after registration
+                                        (serial number). Monthly savings and the savings
+                                        ledger require this.
+                                    </p>
+                                    {canManage ? (
+                                        <Link
+                                            href={route(
+                                                'members.savings-account.store',
+                                                member.id,
+                                            )}
+                                            method="post"
+                                            as="button"
+                                            className={cn(
+                                                buttonVariants({
+                                                    size: 'sm',
+                                                }),
+                                                'w-fit',
+                                            )}
+                                        >
+                                            Issue savings account
+                                        </Link>
+                                    ) : (
+                                        <p className="text-muted-foreground text-xs">
+                                            Ask an admin or staff member with edit
+                                            access to issue the account.
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <>
+                                    <Input
+                                        id="savings_account_number"
+                                        value={data.savings_account_number}
+                                        onChange={(e) =>
+                                            setData(
+                                                'savings_account_number',
+                                                e.target.value,
+                                            )
+                                        }
+                                        placeholder="e.g. SAV-000123"
+                                        disabled={!canManage}
+                                    />
+                                    <p className="text-muted-foreground text-xs">
+                                        Used for monthly savings and the savings
+                                        ledger. Adjust only if the code was entered
+                                        incorrectly.
+                                    </p>
+                                </>
+                            )}
+                            {errors.savings_account_number ? (
+                                <p className="text-destructive text-sm">
+                                    {errors.savings_account_number}
+                                </p>
+                            ) : null}
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="name">Name</Label>
@@ -162,6 +232,12 @@ export default function Edit({ member }: EditProps) {
                         <Button type="submit" disabled={processing}>
                             {processing ? 'Saving…' : 'Save'}
                         </Button>
+                        <Link
+                            href={route('members.savings-statement', member.id)}
+                            className="text-sm underline-offset-4 hover:underline"
+                        >
+                            Savings statement
+                        </Link>
                         <Link
                             href={route('members.index')}
                             className="text-muted-foreground text-sm underline-offset-4 hover:underline"

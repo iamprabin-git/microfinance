@@ -50,6 +50,7 @@ export interface GroupOption {
 export interface MemberListRow {
     id: number;
     member_number: number | null;
+    savings_account_number?: string | null;
     name: string;
     email: string | null;
     phone: string | null;
@@ -61,12 +62,14 @@ export interface CompanyMemberOption {
     id: number;
     name: string;
     member_number?: number | null;
+    savings_account_number?: string | null;
 }
 
 export interface MemberMissingSavingsRow {
     id: number;
     name: string;
     member_number: number | null;
+    savings_account_number?: string | null;
 }
 
 export interface SavingListRow {
@@ -77,11 +80,17 @@ export interface SavingListRow {
     company_approval_status: string;
     paid_at: string | null;
     currency: string;
-    member: { id: number; name: string };
+    member: {
+        id: number;
+        name: string;
+        member_number?: number | null;
+        savings_account_number?: string | null;
+    };
 }
 
 export interface LoanListRow {
     id: number;
+    loan_account_number?: string | null;
     principal: string;
     issued_at: string;
     due_date: string | null;
@@ -92,3 +101,21 @@ export interface LoanListRow {
     member: { id: number; name: string };
 }
 
+export interface ChartOfAccountRow {
+    id: number;
+    type: string;
+    code: string;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+    assigned_users_count: number;
+}
+
+export interface ProductRow {
+    id: number;
+    type: string;
+    code: string;
+    name: string;
+    description: string | null;
+    is_active: boolean;
+}

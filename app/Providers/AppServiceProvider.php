@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Domain\FinancialReport;
+use App\Models\CrmItem;
+use App\Observers\CrmItemObserver;
 use App\Policies\FinancialReportPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Vite;
@@ -26,5 +28,7 @@ class AppServiceProvider extends ServiceProvider
         Vite::prefetch(concurrency: 3);
 
         Gate::policy(FinancialReport::class, FinancialReportPolicy::class);
+
+        CrmItem::observe(CrmItemObserver::class);
     }
 }

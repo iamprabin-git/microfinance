@@ -34,19 +34,23 @@ export default function AppLayout({
     const navItems = useCompanySidebar
         ? buildCompanyNavItems(path, {
               isEndUser: companyPortal?.isEndUser ?? false,
+              canManage: companyPortal?.canManage ?? false,
           })
         : [];
 
     return (
         <div
             className={cn(
-                'min-h-screen bg-background',
-                useCompanySidebar && 'lg:flex',
+                'h-dvh bg-background',
+                useCompanySidebar && 'lg:flex lg:overflow-hidden',
             )}
         >
             {useCompanySidebar ? (
                 <aside
-                    className="print:hidden border-border/60 bg-background hidden w-56 shrink-0 flex-col border-r lg:flex"
+                    className={cn(
+                        'print:hidden border-border/60 bg-background hidden w-56 shrink-0 flex-col border-r lg:flex',
+                        'lg:fixed lg:inset-y-0 lg:left-0',
+                    )}
                     aria-label="Company navigation"
                 >
                     <div className="border-border/60 border-b px-4 py-4">
@@ -100,34 +104,36 @@ export default function AppLayout({
                 </aside>
             ) : null}
 
-            <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-                <AppHeader companySidebarLayout={useCompanySidebar} />
-                <main
-                    className={cn(
-                        'mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8',
-                        'print:max-w-none print:px-8 print:py-6',
-                    )}
-                >
-                    {!hidePrint ? (
-                        <div className="print:hidden -mt-1 mb-4 flex justify-end sm:mb-5">
-                            <PrintPageButton />
-                        </div>
-                    ) : null}
-                    {title ? (
-                        <h1 className="mb-5 flex items-center gap-2.5 text-2xl font-semibold tracking-tight sm:mb-6 sm:gap-3">
-                            {TitleIcon ? (
-                                <HeadingIcon
-                                    icon={TitleIcon}
-                                    size="lg"
-                                    className="text-foreground/80"
-                                />
+            <div
+                className={cn(
+                    'flex min-w-0 flex-1 flex-col',
+                    useCompanySidebar && 'lg:ml-56',
+                )}
+            >
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                    <AppHeader
+                        companySidebarLayout={useCompanySidebar}
+                        navItems={navItems}
+                        pageTitle={title}
+                        pageTitleIcon={TitleIcon}
+                    />
+                    <div className="min-h-0 flex-1 overflow-y-auto">
+                        <main
+                            className={cn(
+                                'mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8',
+                                'print:max-w-none print:px-8 print:py-6',
+                            )}
+                        >
+                            {!hidePrint ? (
+                                <div className="print:hidden -mt-1 mb-4 flex justify-end sm:mb-5">
+                                    <PrintPageButton />
+                                </div>
                             ) : null}
-                            {title}
-                        </h1>
-                    ) : null}
-                    {children}
-                </main>
-                <AppFooter companySidebarLayout={useCompanySidebar} />
+                            {children}
+                        </main>
+                        <AppFooter companySidebarLayout={useCompanySidebar} />
+                    </div>
+                </div>
             </div>
         </div>
     );

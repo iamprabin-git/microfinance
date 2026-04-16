@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\UserRole;
 use App\Filament\Resources\UserResource\Pages;
+use App\Models\ChartOfAccount;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -61,6 +62,7 @@ class UserResource extends Resource
                     ->relationship('company', 'name')
                     ->searchable()
                     ->preload()
+                    ->reactive()
                     ->visible(fn (Get $get): bool => in_array($get('role'), [
                         UserRole::CompanyAdmin->value,
                         UserRole::CompanyUser->value,
@@ -68,6 +70,29 @@ class UserResource extends Resource
                         UserRole::CompanyEndUser->value,
                     ], true))
                     ->required(fn (Get $get): bool => in_array($get('role'), [
+                        UserRole::CompanyAdmin->value,
+                        UserRole::CompanyUser->value,
+                        UserRole::CompanyStaff->value,
+                        UserRole::CompanyEndUser->value,
+                    ], true)),
+                Forms\Components\Select::make('chart_of_account_id')
+                    ->label('Chart of account')
+                    ->options(fn (Get $get): array => $get('company_id')
+                        ? ChartOfAccount::query()
+                            ->where('company_id', $get('company_id'))
+                            ->where('is_active', true)
+                            ->pluck('name', 'id')
+                            ->toArray()
+                        : [])
+                    ->searchable()
+                    ->preload()
+                    ->required(fn (Get $get): bool => in_array($get('role'), [
+                        UserRole::CompanyAdmin->value,
+                        UserRole::CompanyUser->value,
+                        UserRole::CompanyStaff->value,
+                        UserRole::CompanyEndUser->value,
+                    ], true))
+                    ->visible(fn (Get $get): bool => in_array($get('role'), [
                         UserRole::CompanyAdmin->value,
                         UserRole::CompanyUser->value,
                         UserRole::CompanyStaff->value,
@@ -95,13 +120,19 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('company.name')
                     ->label('Company')
                     ->placeholder('—'),
+                Tables\Columns\TextColumn::make('chartOfAccount.name')
+                    ->label('COA')
+                    ->placeholder('—')
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('created_at')
                     ->dateTime()
                     ->sortable()
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                //
+                Tables\Filters\SelectFilter::make('chart_of_account_id')
+                    ->label('COA')
+                    ->relationship('chartOfAccount', 'name'),
             ])
             ->actions([
                 Tables\Actions\EditAction::make(),

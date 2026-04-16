@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Enums\CompanyApprovalStatus;
 use App\Enums\LoanStatus;
+use App\Enums\ProductType;
 use App\Models\Loan;
 use App\Models\Member;
+use App\Models\Product;
+use Illuminate\Database\QueryException;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -35,6 +38,7 @@ class LoanController extends Controller
             ->get()
             ->map(fn (Loan $loan) => [
                 'id' => $loan->id,
+                'loan_account_number' => $loan->loan_account_number,
                 'principal' => (string) $loan->principal,
                 'issued_at' => $loan->issued_at->format('Y-m-d'),
                 'due_date' => $loan->due_date?->format('Y-m-d'),
@@ -58,9 +62,20 @@ class LoanController extends Controller
         $companyId = (int) $request->user()->company_id;
         $company = $request->user()->company;
 
+        $defaultMemberId = null;
+        $rawMemberId = $request->query('member_id');
+        if ($rawMemberId !== null && $rawMemberId !== '') {
+            $mid = (int) $rawMemberId;
+            if ($mid > 0 && Member::query()->forCompany($companyId)->where('id', $mid)->exists()) {
+                $defaultMemberId = $mid;
+            }
+        }
+
         return Inertia::render('Loans/Create', [
             'members' => $this->membersForCompany($companyId),
+            'loan_products' => $this->loanProductsForCompany($companyId),
             'currency' => $company?->currency ?? config('app.default_currency'),
+            'default_member_id' => $defaultMemberId,
         ]);
     }
 
@@ -70,6 +85,14 @@ class LoanController extends Controller
 
         $validated = $request->validate([
             'member_id' => ['required', 'integer'],
+            'product_code' => ['nullable', 'string', 'max:32'],
+            'loan_account_number' => [
+                'nullable',
+                'string',
+                'max:64',
+                Rule::unique('loans', 'loan_account_number')
+                    ->where(fn ($q) => $q->where('company_id', $companyId)),
+            ],
             'principal' => ['required', 'numeric', 'min:0.01'],
             'issued_at' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
@@ -88,7 +111,45 @@ class LoanController extends Controller
             ? CompanyApprovalStatus::Approved
             : CompanyApprovalStatus::PendingApproval;
 
-        Loan::query()->create($validated);
+        if (! filled($validated['loan_account_number'] ?? null)) {
+            unset($validated['loan_account_number']);
+        }
+        $productCode = isset($validated['product_code']) && is_string($validated['product_code'])
+            ? strtoupper(trim($validated['product_code']))
+            : '';
+        unset($validated['product_code']);
+
+        $loanPrefix = 'LN';
+        if ($productCode !== '') {
+            $product = Product::query()
+                ->forCompany($companyId)
+                ->where('type', ProductType::Loan->value)
+                ->where('code', $productCode)
+                ->first();
+            if ($product !== null) {
+                $loanPrefix = strtoupper(trim((string) $product->code));
+            }
+        }
+
+        $loan = null;
+        if (! isset($validated['loan_account_number'])) {
+            $attempt = 0;
+            while ($attempt < 5) {
+                $attempt++;
+                $validated['loan_account_number'] = $this->nextLoanAccountNumber($companyId, $loanPrefix.'-');
+                try {
+                    $loan = Loan::query()->create($validated);
+                    break;
+                } catch (QueryException $e) {
+                    $loan = null;
+                    continue;
+                }
+            }
+        }
+
+        if ($loan === null) {
+            $loan = Loan::query()->create($validated);
+        }
 
         return redirect()->route('loans.index')->with('status', 'Loan created.');
     }
@@ -106,6 +167,7 @@ class LoanController extends Controller
             'loan' => [
                 'id' => $loan->id,
                 'member_id' => $loan->member_id,
+                'loan_account_number' => $loan->loan_account_number,
                 'principal' => (string) $loan->principal,
                 'issued_at' => $loan->issued_at->format('Y-m-d'),
                 'due_date' => $loan->due_date?->format('Y-m-d'),
@@ -132,6 +194,14 @@ class LoanController extends Controller
 
         $validated = $request->validate([
             'member_id' => ['required', 'integer'],
+            'loan_account_number' => [
+                'nullable',
+                'string',
+                'max:64',
+                Rule::unique('loans', 'loan_account_number')
+                    ->where(fn ($q) => $q->where('company_id', $companyId))
+                    ->ignore($loan->id),
+            ],
             'principal' => ['required', 'numeric', 'min:0.01'],
             'issued_at' => ['required', 'date'],
             'due_date' => ['nullable', 'date', 'after_or_equal:issued_at'],
@@ -200,8 +270,13 @@ class LoanController extends Controller
         return Member::query()
             ->forCompany($companyId)
             ->orderBy('name')
-            ->get(['id', 'name'])
-            ->map(fn (Member $m) => ['id' => $m->id, 'name' => $m->name])
+            ->get(['id', 'name', 'member_number', 'savings_account_number'])
+            ->map(fn (Member $m) => [
+                'id' => $m->id,
+                'name' => $m->name,
+                'member_number' => $m->member_number,
+                'savings_account_number' => $m->savings_account_number,
+            ])
             ->all();
     }
 
@@ -229,5 +304,49 @@ class LoanController extends Controller
         }
 
         return false;
+    }
+
+    private function nextLoanAccountNumber(int $companyId, string $prefix = 'LN-'): string
+    {
+        $values = Loan::query()
+            ->forCompany($companyId)
+            ->whereNotNull('loan_account_number')
+            ->where('loan_account_number', 'like', $prefix.'%')
+            ->pluck('loan_account_number')
+            ->all();
+
+        $max = 0;
+        foreach ($values as $val) {
+            $suffix = substr((string) $val, strlen($prefix));
+            if ($suffix === false || $suffix === '') {
+                continue;
+            }
+            if (! ctype_digit($suffix)) {
+                continue;
+            }
+            $n = (int) $suffix;
+            $max = max($max, $n);
+        }
+
+        return $prefix.str_pad((string) ($max + 1), 6, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * @return list<array{id: int, code: string, name: string}>
+     */
+    private function loanProductsForCompany(int $companyId): array
+    {
+        return Product::query()
+            ->forCompany($companyId)
+            ->where('type', ProductType::Loan->value)
+            ->where('is_active', true)
+            ->orderBy('code')
+            ->get(['id', 'code', 'name'])
+            ->map(fn (Product $p) => [
+                'id' => (int) $p->id,
+                'code' => (string) $p->code,
+                'name' => (string) $p->name,
+            ])
+            ->all();
     }
 }

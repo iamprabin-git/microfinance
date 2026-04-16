@@ -4,9 +4,14 @@ import { cn } from '@/lib/utils';
 import { Link } from '@inertiajs/react';
 import {
     FileSpreadsheet,
+    FolderTree,
     Landmark,
     LayoutDashboard,
+    NotebookPen,
+    Package,
     PiggyBank,
+    Receipt,
+    Search,
     Users,
     type LucideIcon,
 } from 'lucide-react';
@@ -21,6 +26,7 @@ export type CompanyNavItem = {
 
 type CompanyNavOptions = {
     isEndUser?: boolean;
+    canManage?: boolean;
 };
 
 export function buildCompanyNavItems(
@@ -29,6 +35,7 @@ export function buildCompanyNavItems(
 ): CompanyNavItem[] {
     const p = path.split('?')[0] ?? path;
     const isEndUser = options?.isEndUser ?? false;
+    const canManage = options?.canManage ?? false;
 
     const items: CompanyNavItem[] = [
         {
@@ -65,6 +72,38 @@ export function buildCompanyNavItems(
             active: p.startsWith('/loans'),
             icon: Landmark,
         },
+        ...(canManage
+            ? [
+                  {
+                      key: 'account-lookup',
+                      href: route('account-lookup.index'),
+                      label: 'Account lookup',
+                      active: p.startsWith('/account-lookup'),
+                      icon: Search,
+                  } satisfies CompanyNavItem,
+                  {
+                      key: 'journal-vouchers',
+                      href: route('journal-vouchers.index'),
+                      label: 'Journal entries',
+                      active: p.startsWith('/journal-vouchers'),
+                      icon: NotebookPen,
+                  } satisfies CompanyNavItem,
+                  {
+                      key: 'products',
+                      href: route('products.index'),
+                      label: 'Products',
+                      active: p.startsWith('/products'),
+                      icon: Package,
+                  } satisfies CompanyNavItem,
+                  {
+                      key: 'chart-of-accounts',
+                      href: route('chart-of-accounts.index'),
+                      label: 'Chart of accounts',
+                      active: p.startsWith('/chart-of-accounts'),
+                      icon: FolderTree,
+                  } satisfies CompanyNavItem,
+              ]
+            : []),
         {
             key: 'financial-statements',
             href: route('financial-statements.index'),

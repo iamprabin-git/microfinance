@@ -15,13 +15,18 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { UserPlus } from 'lucide-react';
 import type { FormEventHandler } from 'react';
 
-export default function Create() {
+type CreateProps = {
+    redirect_to?: string | null;
+};
+
+export default function Create({ redirect_to = null }: CreateProps) {
     const { data, setData, post, processing, errors } = useForm({
         name: '',
         email: '',
         phone: '',
         address: '',
         profile_image: null as File | null,
+        redirect_to: redirect_to ?? '',
     });
 
     const submit: FormEventHandler = (e) => {
@@ -45,6 +50,14 @@ export default function Create() {
                 </CardHeader>
                 <form onSubmit={submit}>
                     <CardContent className="grid gap-4">
+                        <p className="text-muted-foreground text-xs">
+                            Member is created first with serial number (SN).
+                            Savings/loan account numbers are opened later from
+                            Savings/Loans flow using product codes.
+                        </p>
+                        {redirect_to ? (
+                            <input type="hidden" name="redirect_to" value={data.redirect_to} />
+                        ) : null}
                         <div className="grid gap-2">
                             <Label htmlFor="name">Name</Label>
                             <Input

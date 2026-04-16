@@ -1,4 +1,4 @@
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
     Card,
     CardContent,
@@ -11,6 +11,7 @@ import { HeadingIcon } from '@/components/ui/heading-icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import AppLayout from '@/Layouts/AppLayout';
+import { cn } from '@/lib/utils';
 import type { CompanyMemberOption } from '@/types/models';
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Landmark } from 'lucide-react';
@@ -18,19 +19,25 @@ import type { FormEventHandler } from 'react';
 
 type CreateProps = {
     members: CompanyMemberOption[];
+    loan_products?: Array<{ id: number; code: string; name: string }>;
     currency: string;
     blockedReason?: string | null;
+    default_member_id?: number | null;
 };
 
 export default function Create({
     members,
+    loan_products = [],
     currency,
     blockedReason = null,
+    default_member_id = null,
 }: CreateProps) {
-    const firstMemberId = members[0]?.id ?? 0;
+    const firstMemberId = default_member_id ?? members[0]?.id ?? 0;
 
     const { data, setData, post, processing, errors } = useForm({
         member_id: firstMemberId,
+        product_code: loan_products[0]?.code ?? '',
+        loan_account_number: '',
         principal: '',
         issued_at: new Date().toISOString().slice(0, 10),
         due_date: '',
@@ -90,13 +97,84 @@ export default function Create({
                                 ) : null}
                                 {members.map((m) => (
                                     <option key={m.id} value={m.id}>
-                                        {m.name}
+                                        {m.member_number != null
+                                            ? `SN#${m.member_number} · ${m.name}`
+                                            : m.name}
                                     </option>
                                 ))}
                             </select>
                             {errors.member_id ? (
                                 <p className="text-destructive text-sm">
                                     {errors.member_id}
+                                </p>
+                            ) : null}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <p className="text-muted-foreground text-xs">
+                                    Can&apos;t find the member? Add them first.
+                                </p>
+                                <Link
+                                    href={route('members.create', {
+                                        redirect_to: route('loans.create'),
+                                    })}
+                                    className={cn(
+                                        buttonVariants({
+                                            variant: 'outline',
+                                            size: 'sm',
+                                        }),
+                                    )}
+                                >
+                                    Add new member
+                                </Link>
+                            </div>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="product_code">
+                                Loan product code
+                            </Label>
+                            <select
+                                id="product_code"
+                                className="border-input bg-background h-9 w-full rounded-lg border px-3 text-sm"
+                                value={data.product_code}
+                                onChange={(e) =>
+                                    setData('product_code', e.target.value)
+                                }
+                                disabled={Boolean(blockedReason)}
+                            >
+                                <option value="">Default (LN)</option>
+                                {loan_products.map((p) => (
+                                    <option key={p.id} value={p.code}>
+                                        {p.code} · {p.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-muted-foreground text-xs">
+                                Auto account number copies this product code as
+                                prefix when account field is blank.
+                            </p>
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="loan_account_number">
+                                Loan account number (optional)
+                            </Label>
+                            <Input
+                                id="loan_account_number"
+                                value={data.loan_account_number}
+                                onChange={(e) =>
+                                    setData(
+                                        'loan_account_number',
+                                        e.target.value,
+                                    )
+                                }
+                                placeholder={
+                                    data.product_code
+                                        ? `${data.product_code}-000001`
+                                        : 'Leave blank for auto (e.g. LN-000001)'
+                                }
+                                disabled={Boolean(blockedReason)}
+                            />
+                            {errors.loan_account_number ? (
+                                <p className="text-destructive text-sm">
+                                    {errors.loan_account_number}
                                 </p>
                             ) : null}
                         </div>

@@ -32,12 +32,24 @@ export default function Index({ loans }: IndexProps) {
                     logged on the loan detail page.
                 </p>
                 {canManage ? (
-                    <Link
-                        href={route('loans.create')}
-                        className={cn(buttonVariants())}
-                    >
-                        New loan
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            href={route('members.create', {
+                                redirect_to: route('loans.create'),
+                            })}
+                            className={cn(
+                                buttonVariants({ variant: 'outline' }),
+                            )}
+                        >
+                            Add member
+                        </Link>
+                        <Link
+                            href={route('loans.create')}
+                            className={cn(buttonVariants())}
+                        >
+                            New loan
+                        </Link>
+                    </div>
                 ) : null}
             </div>
 
@@ -63,6 +75,9 @@ export default function Index({ loans }: IndexProps) {
                                     <tr className="border-b text-left">
                                         <th className="px-4 py-3 font-medium">
                                             Member
+                                        </th>
+                                        <th className="px-4 py-3 font-medium">
+                                            Loan A/c
                                         </th>
                                         <th className="px-4 py-3 font-medium">
                                             Principal
@@ -94,6 +109,9 @@ export default function Index({ loans }: IndexProps) {
                                         >
                                             <td className="px-4 py-3 font-medium">
                                                 {row.member.name}
+                                            </td>
+                                            <td className="text-muted-foreground px-4 py-3 font-mono text-xs tabular-nums">
+                                                {row.loan_account_number ?? '—'}
                                             </td>
                                             <td className="px-4 py-3 tabular-nums">
                                                 {row.currency} {row.principal}

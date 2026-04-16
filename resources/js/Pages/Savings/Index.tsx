@@ -42,16 +42,29 @@ export default function Index({
 
             <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-muted-foreground max-w-xl text-sm">
-                    Monthly contribution records per member, with currency per
-                    record.
+                    Monthly contributions per member. Members need a serial
+                    number (registration) and an issued savings account before
+                    you can add rows here.
                 </p>
                 {canManage ? (
-                    <Link
-                        href={route('savings.create')}
-                        className={cn(buttonVariants())}
-                    >
-                        Add record
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <Link
+                            href={route('members.create', {
+                                redirect_to: route('savings.create'),
+                            })}
+                            className={cn(
+                                buttonVariants({ variant: 'outline' }),
+                            )}
+                        >
+                            Add member
+                        </Link>
+                        <Link
+                            href={route('savings.create')}
+                            className={cn(buttonVariants())}
+                        >
+                            Add record
+                        </Link>
+                    </div>
                 ) : null}
             </div>
 
@@ -62,8 +75,8 @@ export default function Index({
                             No saving row for {missing_savings_period_label}
                         </CardTitle>
                         <CardDescription>
-                            These members are not in the table below until you add
-                            a monthly record for this month.
+                            Registered members with a savings account who do not
+                            yet have a row for this month.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -77,7 +90,12 @@ export default function Index({
                                         {m.name}
                                         {m.member_number != null ? (
                                             <span className="text-muted-foreground ms-1 font-normal tabular-nums">
-                                                #{m.member_number}
+                                                Serial #{m.member_number}
+                                            </span>
+                                        ) : null}
+                                        {m.savings_account_number?.trim() ? (
+                                            <span className="text-muted-foreground ms-2 font-mono text-xs tabular-nums">
+                                                {m.savings_account_number.trim()}
                                             </span>
                                         ) : null}
                                     </span>
@@ -125,6 +143,12 @@ export default function Index({
                                             Period
                                         </th>
                                         <th className="px-4 py-3 font-medium">
+                                            Serial #
+                                        </th>
+                                        <th className="px-4 py-3 font-medium">
+                                            Savings A/c
+                                        </th>
+                                        <th className="px-4 py-3 font-medium">
                                             Member
                                         </th>
                                         <th className="px-4 py-3 font-medium">
@@ -151,6 +175,13 @@ export default function Index({
                                         >
                                             <td className="px-4 py-3 tabular-nums">
                                                 {row.period.slice(0, 7)}
+                                            </td>
+                                            <td className="text-muted-foreground px-4 py-3 font-mono text-xs tabular-nums">
+                                                {row.member.member_number ?? '—'}
+                                            </td>
+                                            <td className="text-muted-foreground px-4 py-3 font-mono text-xs tabular-nums">
+                                                {row.member.savings_account_number?.trim() ||
+                                                    '—'}
                                             </td>
                                             <td className="px-4 py-3 font-medium">
                                                 {row.member.name}

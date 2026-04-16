@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\CompanyResource\RelationManagers;
 
 use App\Enums\UserRole;
+use App\Models\ChartOfAccount;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -47,6 +48,21 @@ class PortalUsersRelationManager extends RelationManager
                     ])
                     ->required()
                     ->native(false),
+                Forms\Components\Select::make('chart_of_account_id')
+                    ->label('Chart of account')
+                    ->options(fn (): array => ChartOfAccount::query()
+                        ->where('company_id', $this->getOwnerRecord()->id)
+                        ->where('is_active', true)
+                        ->pluck('name', 'id')
+                        ->toArray()
+                    )
+                    ->searchable()
+                    ->preload()
+                    ->required(fn (\Filament\Forms\Get $get): bool => in_array($get('role'), [
+                        \App\Enums\UserRole::CompanyUser->value,
+                        \App\Enums\UserRole::CompanyStaff->value,
+                        \App\Enums\UserRole::CompanyEndUser->value,
+                    ], true)),
             ]);
     }
 
@@ -67,6 +83,9 @@ class PortalUsersRelationManager extends RelationManager
 
                         return $role->label();
                     }),
+                Tables\Columns\TextColumn::make('chartOfAccount.name')
+                    ->label('COA')
+                    ->toggleable(),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make(),

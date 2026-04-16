@@ -45,6 +45,7 @@ class HandleInertiaRequests extends Middleware
                         'email_verified_at' => $user->email_verified_at,
                         'role' => $user->role->value,
                         'company' => $user->company?->only(['id', 'name', 'slug']),
+                        'profile_photo_url' => $user->profilePhotoPublicUrl(),
                     ]
                     : null,
             ],
